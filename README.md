@@ -20,9 +20,9 @@ After cloning the Cassandra Wokload Extractor project, download a diagnostic tar
 
 If you do not have DSE Opscenter collect the following files and add the in the file structure below.
 Run the following nodetool commands on each node
- - nodetool cfstats
- - nodetool info
- - nodetool describecluster
+ - nodetool cfstats > cfstats
+ - nodetool info > info
+ - nodetool describecluster > describecluster
 
 ```
 [Cluster_Name]
