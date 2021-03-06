@@ -4,7 +4,7 @@
 ## Table of Contents
 
 * [Summary](#summary)
-* [Script Origins](#origins)
+* [Script Origins](#origins-of-the-code)
 * [Getting Started](#getting-started)
 * [Using the Cluster Load Spreadsheet](#using-the-cluster-load-spreadsheet)
 
@@ -15,9 +15,9 @@ This script was designed to give insight on a Cassandra Database by identifying 
 
 This script gives cluster transaction totals including TPS,TPD and TPMO-Transactions per Month (356/12).  It also includes total log time (including all nodes).
 
-<!-- ORIGINS-->
+<!-- ORIGINS OF THE CODE -->
 ## Origins of the Code
-This code was created to assist in identifying average tps numbers.  For so long, the max tps ruled everything.  Environments were built on the daily, weekly or monthly max loads.  Now that there is a Cassandra DBaaS - DataStax Astra (https://astra.datastax.com) with prices based on averages, the nessesity to get average transactions is important. Enjoy!! 
+This code was created to assist in identifying average tps numbers.  For so long, the max tps ruled everything.  Environments were built on the daily, weekly or monthly max loads.  Now that there is a Cassandra DBaaS - DataStax Astra (https://astra.datastax.com) with prices based on averages, the nessesity to get average transaction numbers is important. Enjoy!! 
 
 <!-- GETTING STARTED -->
 ## Getting Started
