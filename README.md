@@ -6,9 +6,6 @@
 * [Summary](#summary)
 * [Getting Started](#getting-started)
 * [Using the Cluster Load Spreadsheet](#using-the-cluster-load-spreadsheet)
-* [NoSQLBench YAML Files](#nosqlbench-yaml-files)
-* [Collecting Diagnostic Data](#collecting-diagnostic-data)
-* [Acknowledgements](#acknowledgements)
 
 <!-- SUMMARY -->
 ## Summary
