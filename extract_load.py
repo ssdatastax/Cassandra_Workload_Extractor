@@ -316,7 +316,7 @@ for cluster_url in data_url:
       'text_wrap': False,
       'font_size': 11,
       'border': 1,
-      'num_format': '#,##0.000',
+      'num_format': '#,##0.00',
       'valign': 'top'})
 
   for ks_type in ks_type_array:
@@ -385,30 +385,6 @@ for cluster_url in data_url:
     total_tpmo = total_tps*60*60*24*365.25/12
     days_uptime = total_uptime/60/60/24
 
-    if (total_tpd>=1000000000):
-      tpd_value = total_tpd/1000000000
-      tpd_unit = 'Billions'
-    elif (total_tpd>=1000000):
-      tpd_value = total_tpd/1000000
-      tpd_unit = 'Millions'
-    elif (total_tpd>=1000):
-      tpd_value = total_tpd/1000
-      tpd_unit = 'Thousands'
-
-    if (total_tpmo>=1000000000000):
-      tpmo_value = total_tpmo/1000000000000
-      tpmo_unit = 'Trillions'
-    elif (total_tpmo>=1000000000):
-      tpmo_value = total_tpmo/1000000000
-      tpmo_unit = 'Billions'
-    elif (total_tpmo>=1000000):
-      tpmo_value = total_tpmo/1000000
-      tpmo_unit = 'Millions'
-    elif (total_tpmo>=1000):
-      tpmo_value = total_tpmo/1000
-      tpmo_unit = 'Thousands'
-
-
     column=14
     worksheet[ks_type].write(1,column,'Reads',header_format3)
     worksheet[ks_type].write(1,column+1,total_reads[ks_type],num_format1)
@@ -424,16 +400,16 @@ for cluster_url in data_url:
     worksheet[ks_type].write(6,column+1,total_writes[ks_type]/float(total_rw[ks_type])*100,num_format2)
     worksheet[ks_type].write(7,column,'RW',header_format3)
     worksheet[ks_type].write(7,column+1,total_rw[ks_type],num_format1)
-    worksheet[ks_type].write(8,column,'*Total Log Time (Seconds)',header_format3)
+    worksheet[ks_type].write(8,column,'Total Log Time* (Seconds)',header_format3)
     worksheet[ks_type].write(8,column+1,total_uptime,num_format1)
-    worksheet[ks_type].write(9,column,'*Total Log Time (Days)',header_format3)
+    worksheet[ks_type].write(9,column,'Total Log Time* (Days)',header_format3)
     worksheet[ks_type].write(9,column+1,days_uptime,num_format1)
-    worksheet[ks_type].write(10,column,'TPS',header_format3)
-    worksheet[ks_type].write(10,column+1,total_tps,num_format2)
-    worksheet[ks_type].write(11,column,'TPD ('+tpd_unit+')',header_format3)
-    worksheet[ks_type].write(11,column+1,tpd_value,num_format2)
-    worksheet[ks_type].write(12,column,'**TPMO ('+tpmo_unit+')',header_format3)
-    worksheet[ks_type].write(12,column+1,tpmo_value,num_format2)
+    worksheet[ks_type].write(10,column,'Average TPS',header_format3)
+    worksheet[ks_type].write(10,column+1,total_tps,num_format1)
+    worksheet[ks_type].write(11,column,'Average TPD',header_format3)
+    worksheet[ks_type].write(11,column+1,total_tpd,num_format1)
+    worksheet[ks_type].write(12,column,'TPMO**',header_format3)
+    worksheet[ks_type].write(12,column+1,total_tpmo,num_format1)
     worksheet[ks_type].write(14,column,'NOTE: Transaction totals include all nodes (nodetool cfstats)',data_format2)
     worksheet[ks_type].write(15,column,'* Uptimes is the total all node uptimes (nodetool info)',data_format2)
     worksheet[ks_type].write(16,column,'** TPMO - transactions per month is calculated at 30.4375 days (365.25/12)',data_format2)
