@@ -368,7 +368,7 @@ for cluster_url in data_url:
 
     total_tps = float(total_rw[ks_type])/total_uptime
     total_tpd = total_tps*60*60*24
-    total_tpmo = total_tps*60*60*24*365/12
+    total_tpmo = total_tps*60*60*24*365.25/12
     days_uptime = total_uptime/60/60/24
 
     if (total_tpd>=1000000000):
@@ -422,7 +422,7 @@ for cluster_url in data_url:
     worksheet[ks_type].write(12,column+1,round(tpmo_value,3),data_format)
     worksheet[ks_type].write(14,column,'NOTE: Transaction totals include all nodes (nodetool cfstats)',data_format2)
     worksheet[ks_type].write(15,column,'* Uptimes is the total all node uptimes (nodetool info)',data_format2)
-    worksheet[ks_type].write(16,column,'** TPMO (transactions per month) is calculated at 30.41667 days (365/12)',data_format2)
+    worksheet[ks_type].write(16,column,'** TPMO - transactions per month is calculated at 30.41667 days (365.25/12)',data_format2)
   
   workbook.close()
 exit();
