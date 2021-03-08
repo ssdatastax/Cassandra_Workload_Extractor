@@ -77,7 +77,7 @@ for argnum,arg in enumerate(sys.argv):
     read_threshold = float(sys.argv[argnum+1])/100
   elif(arg=='-wt'):
     write_threshold = float(sys.argv[argnum+1])/100
-  elif(arg=='-s'):
+  elif(arg=='-sys'):
     include_system = 1
 
 if (include_system): ks_type_array=['app','sys']
@@ -89,7 +89,7 @@ if show_help:
   '                       [-p PATH_TO_DIAG_FOLDER]\n'\
   '                       [-rt READ_THRESHOLD]\n'\
   '                       [-wt WRITE_THRESHOLD]\n'\
-  'oprional arguments:\n'\
+  'optional arguments:\n'\
   '-h, --help             This help info\n'\
   '-p                     Path to the diagnostics folder\n'\
   '                        Multiple diag folders accepted\n'\
@@ -102,7 +102,7 @@ if show_help:
   '                        to be included in the output\n'\
   '                        Default: 100%\n'\
   '                        i.e. -wt 85\n'
-  '-s                     Include System files in addtional tab\n'\
+  '-sys                   Include System files in addtional tab\n'\
 
   exit(help_content)
 
