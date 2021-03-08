@@ -56,7 +56,7 @@ You may limit the load to just the top n% of the reads and/or writes (read and w
 ```
 python extract_load.py -p [path_to_diag_folder] -rt 85 -wt 85
 ```
-You may add the system workload as an addtional tabin the spreadsheet.  The system workload remians seperate from the appplication workload:
+You may add the system workload as an addtional tab in the spreadsheet.  The system workload remians seperate from the appplication workload:
 ```
 python extract_load.py -p [path_to_diag_folder] -sys
 ```
