@@ -52,6 +52,14 @@ You may run the script on multiple diagnostic folders:
 ```
 python extract_load.py -p [path_to_diag_folder1] -p [path_to_diag_folder2] -p [path_to_diag_folder3]
 ```
+You may limit the load to just the top n% of the reads and/or writes (read and write thresholds):
+```
+python extract_load.py -p [path_to_diag_folder] -rt 85 -wt 85
+```
+You may add the system workload as an addtional tab in the spreadsheet.  The system workload remians seperate from the appplication workload:
+```
+python extract_load.py -p [path_to_diag_folder] -sys
+```
 
 #### Help
 There is a brief help info section:
