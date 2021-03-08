@@ -58,8 +58,8 @@ def rwTag(writeFile,rwCQL,ks,tbl,tbl_info,ratio='n'):
 
 data_url = []
 system_keyspace = ['OpsCenter','dse_insights_local','solr_admin','test','dse_system','dse_analytics','system_auth','system_traces','system','dse_system_local','system_distributed','system_schema','dse_perf','dse_insights','dse_security','killrvideo','dse_leases','dsefs_c4z','HiveMetaStore','dse_analytics','dsefs']
-headers=["Keyspace","Table","Reads","TPS","% Reads","% RW","","Keyspace","Table","Writes","TPS","% Writes","% RW","","TOTALS"]
-headers_width=[14,25,17,9,9,9,3,14,25,17,9,9,9,3,25,20]
+headers=["Keyspace","Table","Total Reads","Average TPS","% Reads","% RW","","Keyspace","Table","Total Writes","Average TPS","% Writes","% RW","","TOTALS"]
+headers_width=[14,25,17,13,9,9,3,14,25,17,13,9,9,3,25,20]
 ks_type_abbr = {'app':'Application','sys':'System'}
 read_threshold = 1
 write_threshold = 1
@@ -305,6 +305,13 @@ for cluster_url in data_url:
       'italic': True,
       'valign': 'top'})
       
+  perc_format = workbook.add_format({
+      'text_wrap': False,
+      'font_size': 11,
+      'border': 1,
+      'num_format': '#,###.00%',
+      'valign': 'top'})
+
   num_format1 = workbook.add_format({
       'text_wrap': False,
       'font_size': 11,
@@ -319,17 +326,31 @@ for cluster_url in data_url:
       'num_format': '#,##0.00',
       'valign': 'top'})
 
+  title_format = workbook.add_format({
+      'bold': 1,
+      'font_size': 13,
+      'border': 1,
+      'align': 'center',
+      'valign': 'vcenter',
+      'font_color': 'white',
+      'bg_color': 'black'})
+
+  for ks_type in ks_type_array:
+    worksheet[ks_type].merge_range('A1:F1', 'READS', title_format)
+    worksheet[ks_type].merge_range('H1:M1', 'WRITES', title_format)
+    worksheet[ks_type].merge_range('O1:P1', 'TOTALS', title_format)
+
   for ks_type in ks_type_array:
     column=0
     for header in headers:
         if header == '':
-          worksheet[ks_type].write(0,column,header)
+          worksheet[ks_type].write(1,column,header)
         else:
-          worksheet[ks_type].write(0,column,header,header_format1)
+          worksheet[ks_type].write(1,column,header,header_format1)
         column+=1
 
   for ks_type in ks_type_array:
-    row = {'app':1,'sys':1}
+    row = {'app':2,'sys':2}
     perc_reads = 0.0
     column = 0
     for reads in read_count[ks_type]:
@@ -348,13 +369,13 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
         worksheet[ks_type].write(row[ks_type],column+2,cnt,num_format1)
         worksheet[ks_type].write(row[ks_type],column+3,float(cnt)/total_uptime,num_format2)
-        worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_reads[ks_type]*100,num_format2)
-        worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type])*100,num_format2)
+        worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_reads[ks_type],perc_format)
+        worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type]),perc_format)
         row[ks_type]+=1
 
   for ks_type in ks_type_array:
     perc_writes = 0.0
-    row = {'app':1,'sys':1}
+    row = {'app':2,'sys':2}
     column = 7
     for writes in write_count[ks_type]:
       perc_writes = float(write_subtotal[ks_type]) / float(total_writes[ks_type])
@@ -376,8 +397,8 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
         worksheet[ks_type].write(row[ks_type],column+2,cnt,num_format1)
         worksheet[ks_type].write(row[ks_type],column+3,float(cnt)/total_uptime,num_format2)
-        worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_writes[ks_type]*100,num_format2)
-        worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type])*100,num_format2)
+        worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_writes[ks_type],perc_format)
+        worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type]),perc_format)
         row[ks_type]+=1
 
     total_tps = float(total_rw[ks_type])/total_uptime
@@ -391,13 +412,13 @@ for cluster_url in data_url:
     worksheet[ks_type].write(2,column,'Reads TPS',header_format3)
     worksheet[ks_type].write(2,column+1,total_reads[ks_type]/total_uptime,num_format2)
     worksheet[ks_type].write(3,column,'Reads % RW',header_format3)
-    worksheet[ks_type].write(3,column+1,total_reads[ks_type]/float(total_rw[ks_type])*100,num_format2)
+    worksheet[ks_type].write(3,column+1,total_reads[ks_type]/float(total_rw[ks_type]),perc_format)
     worksheet[ks_type].write(4,column,'Writes',header_format3)
     worksheet[ks_type].write(4,column+1,total_writes[ks_type],num_format1)
     worksheet[ks_type].write(5,column,'Writes TPS',header_format3)
     worksheet[ks_type].write(5,column+1,total_writes[ks_type]/total_uptime,num_format2)
     worksheet[ks_type].write(6,column,'Writes % RW',header_format3)
-    worksheet[ks_type].write(6,column+1,total_writes[ks_type]/float(total_rw[ks_type])*100,num_format2)
+    worksheet[ks_type].write(6,column+1,total_writes[ks_type]/float(total_rw[ks_type]),perc_format)
     worksheet[ks_type].write(7,column,'RW',header_format3)
     worksheet[ks_type].write(7,column+1,total_rw[ks_type],num_format1)
     worksheet[ks_type].write(8,column,'Total Log Time* (Seconds)',header_format3)
