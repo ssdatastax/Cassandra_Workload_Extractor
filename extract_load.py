@@ -293,6 +293,15 @@ for cluster_url in data_url:
       'border': 1,
       'valign': 'top'})
       
+  header_format4 = workbook.add_format({
+      'bold': True,
+      'text_wrap': False,
+      'font_size': 11,
+      'border': 1,
+      'font_color': 'white',
+      'bg_color': '#3980D3',
+      'valign': 'top'})
+      
   data_format = workbook.add_format({
       'text_wrap': False,
       'font_size': 11,
@@ -326,6 +335,15 @@ for cluster_url in data_url:
       'num_format': '#,##0.00',
       'valign': 'top'})
 
+  num_format3 = workbook.add_format({
+      'text_wrap': False,
+      'font_size': 11,
+      'border': 1,
+      'font_color': 'white',
+      'bg_color': '#3980D3',
+      'num_format': '#,###',
+      'valign': 'top'})
+
   title_format = workbook.add_format({
       'bold': 1,
       'font_size': 13,
@@ -333,24 +351,45 @@ for cluster_url in data_url:
       'align': 'center',
       'valign': 'vcenter',
       'font_color': 'white',
-      'bg_color': 'black'})
+      'bg_color': '#EB6C34'})
+
+  title_format2 = workbook.add_format({
+      'bold': 1,
+      'font_size': 13,
+      'border': 1,
+      'align': 'center',
+      'valign': 'vcenter',
+      'font_color': 'white',
+      'bg_color': '#998E5D'})
+      
+  title_format3 = workbook.add_format({
+      'bold': 1,
+      'font_size': 14,
+      'border': 1,
+      'align': 'center',
+      'valign': 'vcenter',
+      'font_color': 'white',
+      'bg_color': '#3A3A42'})
 
   for ks_type in ks_type_array:
-    worksheet[ks_type].merge_range('A1:F1', 'READS', title_format)
-    worksheet[ks_type].merge_range('H1:M1', 'WRITES', title_format)
-    worksheet[ks_type].merge_range('O1:P1', 'TOTALS', title_format)
+    worksheet[ks_type].merge_range('A1:P1', 'Workload for '+cluster_name, title_format3)
+    worksheet[ks_type].merge_range('A2:F2', 'READS', title_format)
+    worksheet[ks_type].merge_range('H2:M2', 'WRITES', title_format)
+    worksheet[ks_type].merge_range('O2:P2', 'TOTALS', title_format)
 
   for ks_type in ks_type_array:
     column=0
     for header in headers:
         if header == '':
-          worksheet[ks_type].write(1,column,header)
+          worksheet[ks_type].write(2,column,header)
         else:
-          worksheet[ks_type].write(1,column,header,header_format1)
+          worksheet[ks_type].write(2,column,header,header_format1)
         column+=1
 
+  last_row = 0
+
   for ks_type in ks_type_array:
-    row = {'app':2,'sys':2}
+    row = {'app':3,'sys':4}
     perc_reads = 0.0
     column = 0
     for reads in read_count[ks_type]:
@@ -372,10 +411,11 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_reads[ks_type],perc_format)
         worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type]),perc_format)
         row[ks_type]+=1
+  
+    last_row = row[ks_type]
 
-  for ks_type in ks_type_array:
     perc_writes = 0.0
-    row = {'app':2,'sys':2}
+    row = {'app':3,'sys':3}
     column = 7
     for writes in write_count[ks_type]:
       perc_writes = float(write_subtotal[ks_type]) / float(total_writes[ks_type])
@@ -401,39 +441,61 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type]),perc_format)
         row[ks_type]+=1
 
+    if (last_row<row[ks_type]): last_row=row[ks_type]
+    if (last_row<16): last_row=16
+    worksheet[ks_type].merge_range('A'+str(last_row+3)+':P'+str(last_row+3), 'NOTES', title_format2)
+    worksheet[ks_type].merge_range('A'+str(last_row+4)+':P'+str(last_row+4), 'Transaction totals (Reads/Writes) include all nodes (nodetool cfstats)', data_format)
+    worksheet[ks_type].merge_range('A'+str(last_row+5)+':P'+str(last_row+5), 'Log Times (which is used to calculate TPS...) is a sum of the uptimes of all nodes', data_format)
+    worksheet[ks_type].merge_range('A'+str(last_row+6)+':P'+str(last_row+6), '% RW is the Read or Write % of the total reads and writes', data_format)
+    worksheet[ks_type].merge_range('A'+str(last_row+7)+':P'+str(last_row+7), '* TPMO - transactions per month is calculated at 30.4375 days (365.25/12)', data_format)
+
+    reads_tps = total_reads[ks_type]/total_uptime
+    reads_tpd = reads_tps*60*60*24
+    reads_tpmo = reads_tps*60*60*24*365.25/12
+
+    writes_tps = total_writes[ks_type]/total_uptime
+    writes_tpd = writes_tps*60*60*24
+    writes_tpmo = writes_tps*60*60*24*365.25/12
+
     total_tps = float(total_rw[ks_type])/total_uptime
     total_tpd = total_tps*60*60*24
     total_tpmo = total_tps*60*60*24*365.25/12
     days_uptime = total_uptime/60/60/24
 
+    row=1
     column=14
-    worksheet[ks_type].write(1,column,'Reads',header_format3)
-    worksheet[ks_type].write(1,column+1,total_reads[ks_type],num_format1)
-    worksheet[ks_type].write(2,column,'Reads TPS',header_format3)
-    worksheet[ks_type].write(2,column+1,total_reads[ks_type]/total_uptime,num_format2)
-    worksheet[ks_type].write(3,column,'Reads % RW',header_format3)
-    worksheet[ks_type].write(3,column+1,total_reads[ks_type]/float(total_rw[ks_type]),perc_format)
-    worksheet[ks_type].write(4,column,'Writes',header_format3)
-    worksheet[ks_type].write(4,column+1,total_writes[ks_type],num_format1)
-    worksheet[ks_type].write(5,column,'Writes TPS',header_format3)
-    worksheet[ks_type].write(5,column+1,total_writes[ks_type]/total_uptime,num_format2)
-    worksheet[ks_type].write(6,column,'Writes % RW',header_format3)
-    worksheet[ks_type].write(6,column+1,total_writes[ks_type]/float(total_rw[ks_type]),perc_format)
-    worksheet[ks_type].write(7,column,'RW',header_format3)
-    worksheet[ks_type].write(7,column+1,total_rw[ks_type],num_format1)
-    worksheet[ks_type].write(8,column,'Total Log Time* (Seconds)',header_format3)
-    worksheet[ks_type].write(8,column+1,total_uptime,num_format1)
-    worksheet[ks_type].write(9,column,'Total Log Time* (Days)',header_format3)
-    worksheet[ks_type].write(9,column+1,days_uptime,num_format1)
-    worksheet[ks_type].write(10,column,'Average TPS',header_format3)
-    worksheet[ks_type].write(10,column+1,total_tps,num_format1)
-    worksheet[ks_type].write(11,column,'Average TPD',header_format3)
-    worksheet[ks_type].write(11,column+1,total_tpd,num_format1)
-    worksheet[ks_type].write(12,column,'TPMO**',header_format3)
-    worksheet[ks_type].write(12,column+1,total_tpmo,num_format1)
-    worksheet[ks_type].write(14,column,'NOTE: Transaction totals include all nodes (nodetool cfstats)',data_format2)
-    worksheet[ks_type].write(15,column,'* Uptimes is the total all node uptimes (nodetool info)',data_format2)
-    worksheet[ks_type].write(16,column,'** TPMO - transactions per month is calculated at 30.4375 days (365.25/12)',data_format2)
+    worksheet[ks_type].write(row+1,column,'Reads',header_format4)
+    worksheet[ks_type].write(row+1,column+1,total_reads[ks_type],num_format3)
+    worksheet[ks_type].write(row+2,column,'Reads Average TPS',header_format3)
+    worksheet[ks_type].write(row+2,column+1,reads_tps,num_format2)
+    worksheet[ks_type].write(row+3,column,'Reads Average TPD',header_format3)
+    worksheet[ks_type].write(row+3,column+1,reads_tpd,num_format1)
+    worksheet[ks_type].write(row+4,column,'Reads Average TPMO*',header_format3)
+    worksheet[ks_type].write(row+4,column+1,reads_tpmo,num_format1)
+    worksheet[ks_type].write(row+5,column,'Reads % RW',header_format3)
+    worksheet[ks_type].write(row+5,column+1,total_reads[ks_type]/float(total_rw[ks_type]),perc_format)
+    worksheet[ks_type].write(row+6,column,'Writes',header_format4)
+    worksheet[ks_type].write(row+6,column+1,total_writes[ks_type],num_format3)
+    worksheet[ks_type].write(row+7,column,'Writes Average TPS',header_format3)
+    worksheet[ks_type].write(row+7,column+1,writes_tps,num_format2)
+    worksheet[ks_type].write(row+8,column,'Writes Average TPD',header_format3)
+    worksheet[ks_type].write(row+8,column+1,writes_tpd,num_format1)
+    worksheet[ks_type].write(row+9,column,'Writes Average TPMO*',header_format3)
+    worksheet[ks_type].write(row+9,column+1,writes_tpmo,num_format1)
+    worksheet[ks_type].write(row+10,column,'Writes % RW',header_format3)
+    worksheet[ks_type].write(row+10,column+1,total_writes[ks_type]/float(total_rw[ks_type]),perc_format)
+    worksheet[ks_type].write(row+11,column,'Total RW (Reads+Writes)',header_format4)
+    worksheet[ks_type].write(row+11,column+1,total_rw[ks_type],num_format3)
+    worksheet[ks_type].write(row+12,column,'Total Log Time (Seconds)',header_format3)
+    worksheet[ks_type].write(row+12,column+1,total_uptime,num_format1)
+    worksheet[ks_type].write(row+13,column,'Total Log Time (Days)',header_format3)
+    worksheet[ks_type].write(row+13,column+1,days_uptime,num_format1)
+    worksheet[ks_type].write(row+14,column,'Total Average TPS',header_format3)
+    worksheet[ks_type].write(row+14,column+1,total_tps,num_format1)
+    worksheet[ks_type].write(row+15,column,'Total Average TPD',header_format3)
+    worksheet[ks_type].write(row+15,column+1,total_tpd,num_format1)
+    worksheet[ks_type].write(row+16,column,'Total Average TPMO*',header_format3)
+    worksheet[ks_type].write(row+16,column+1,total_tpmo,num_format1)
   
   workbook.close()
 exit();
