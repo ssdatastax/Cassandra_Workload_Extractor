@@ -57,15 +57,17 @@ def rwTag(writeFile,rwCQL,ks,tbl,tbl_info,ratio='n'):
     writeFile.write(cql+'\n\n')
 
 data_url = []
-omit_keyspace = ['OpsCenter','dse_insights_local','solr_admin','test','dse_system','dse_analytics','system_auth','system_traces','system','dse_system_local','system_distributed','system_schema','dse_perf','dse_insights','dse_security','killrvideo','dse_leases','dsefs_c4z','HiveMetaStore','dse_analytics','dsefs']
+system_keyspace = ['OpsCenter','dse_insights_local','solr_admin','test','dse_system','dse_analytics','system_auth','system_traces','system','dse_system_local','system_distributed','system_schema','dse_perf','dse_insights','dse_security','killrvideo','dse_leases','dsefs_c4z','HiveMetaStore','dse_analytics','dsefs']
 headers=["Keyspace","Table","Reads","TPS","% Reads","% RW","","Keyspace","Table","Writes","TPS","% Writes","% RW","","TOTALS"]
-headers_width=[11,25,13,9,9,9,3,11,25,13,9,9,9,3,25,13]
+headers_width=[14,25,13,9,9,9,3,14,25,13,9,9,9,3,25,13]
+ks_type_abbr = {'app':'Application','sys':'System'}
 read_threshold = 1
 write_threshold = 1
 include_yaml = 0
 new_dc = ''
 show_help = ''
-
+include_system = 0
+    
 for argnum,arg in enumerate(sys.argv):
   if(arg=='-h' or arg =='--help'):
     show_help = 'y'
@@ -75,10 +77,11 @@ for argnum,arg in enumerate(sys.argv):
     read_threshold = float(sys.argv[argnum+1])/100
   elif(arg=='-wt'):
     write_threshold = float(sys.argv[argnum+1])/100
-  elif(arg=='-inc_yaml'):
-    include_yaml = 1
-  elif(arg=='-new_dc'):
-    new_dc = sys.argv[argnum+1]
+  elif(arg=='-s'):
+    include_system = 1
+
+if (include_system): ks_type_array=['app','sys']
+else: ks_type_array=['app']
 
 if show_help:
   help_content = \
@@ -99,20 +102,23 @@ if show_help:
   '                        to be included in the output\n'\
   '                        Default: 100%\n'\
   '                        i.e. -wt 85\n'
+  '-s                     Include System files in addtional tab\n'\
+
   exit(help_content)
 
 for cluster_url in data_url:
   is_index = 0
-  read_subtotal = 0
-  write_subtotal = 0
-  total_reads = 0
-  total_writes = 0
+  read_subtotal = {'app':0,'sys':0}
+  write_subtotal = {'app':0,'sys':0}
+  total_reads = {'app':0,'sys':0}
+  total_writes = {'app':0,'sys':0}
+  read_count = {'app':[],'sys':[]}
+  write_count = {'app':[],'sys':[]}
+  total_rw = {'app':0,'sys':0}
   count = 0
   read_table = {}
   write_table = {}
   write_table2 = {}
-  read_count = []
-  write_count = []
   table_totals = {}
   total_uptime = 0
 
@@ -144,40 +150,40 @@ for cluster_url in data_url:
         line = line.strip('\n').strip()
         if("Keyspace" in line):
           ks = line.split(":")[1].strip()
-        if ks not in omit_keyspace and ks != '':
-          if("Table: " in line):
-            tbl = line.split(":")[1].strip()
-            is_index = 0
-          if("Table (index): " in line):
-#            print(ks+":"+tbl)
-            is_index = 1
-          if("Local read count: " in line):
+        if ks not in system_keyspace and ks != '': ks_type='app'
+        else: ks_type='sys'
+        if("Table: " in line):
+          tbl = line.split(":")[1].strip()
+          is_index = 0
+        if("Table (index): " in line):
+          is_index = 1
+        if("Local read count: " in line):
+          count = int(line.split(":")[1].strip())
+          if (count > 0):
+            total_reads[ks_type] += count
+            try:
+              type(read_table[ks])
+            except:
+              read_table[ks] = {}
+            try:
+              type(read_table[ks][tbl])
+              read_table[ks][tbl] += count
+            except:
+              read_table[ks][tbl] = count
+        if (is_index == 0):
+          if("Local write count: " in line):
             count = int(line.split(":")[1].strip())
             if (count > 0):
-              total_reads += count
+              total_writes[ks_type] += count
               try:
-                type(read_table[ks])
+                type(write_table[ks])
               except:
-                read_table[ks] = {}
+                write_table[ks] = {}
               try:
-                type(read_table[ks][tbl])
-                read_table[ks][tbl] += count
+                type(write_table[ks][tbl])
+                write_table[ks][tbl] += count
               except:
-                read_table[ks][tbl] = count
-          if (is_index == 0):
-            if("Local write count: " in line):
-              count = int(line.split(":")[1].strip())
-              if (count > 0):
-                total_writes += count
-                try:
-                  type(write_table[ks])
-                except:
-                  write_table[ks] = {}
-                try:
-                  type(write_table[ks][tbl])
-                  write_table[ks][tbl] += count
-                except:
-                  write_table[ks][tbl] = count
+                write_table[ks][tbl] = count
 
   schema = rootPath + node + "/driver/schema"
   schemaFile = open(schema, "r")
@@ -237,25 +243,32 @@ for cluster_url in data_url:
         print("Error1:" + ks + "." + tbl + " - " + line)
 
   for ks,readtable in read_table.items():
+    if ks not in system_keyspace and ks != '': ks_type='app'
+    else: ks_type='sys'
     for tablename,tablecount in readtable.items():
-      read_count.append({'keyspace':ks,'table':tablename,'count':tablecount})
+      read_count[ks_type].append({'keyspace':ks,'table':tablename,'count':tablecount})
 
   for ks,writetable in write_table.items():
+    if ks not in system_keyspace and ks != '': ks_type='app'
+    else: ks_type='sys'
     for tablename,tablecount in writetable.items():
-      write_count.append({'keyspace':ks,'table':tablename,'count':tablecount})
+      write_count[ks_type].append({'keyspace':ks,'table':tablename,'count':tablecount})
 
-  read_count.sort(reverse=True,key=sortFunc)
-  write_count.sort(reverse=True,key=sortFunc)
-  total_rw = total_reads+total_writes
+  for ks_type in ks_type_array:
+    read_count[ks_type].sort(reverse=True,key=sortFunc)
+    write_count[ks_type].sort(reverse=True,key=sortFunc)
+    total_rw[ks_type] = total_reads[ks_type]+total_writes[ks_type]
 
   #Create Cluster GC Spreadsheet
+  worksheet = {}
   workbook = xlsxwriter.Workbook(cluster_url + "/" + cluster_name + "_" + "workload" + '.xlsx')
-  worksheet = workbook.add_worksheet('RW Data')
+  for ks_type in ks_type_array:
+    worksheet[ks_type] = workbook.add_worksheet(ks_type_abbr[ks_type] + ' Workload')
 
-  column=0
-  for col_width in headers_width:
-    worksheet.set_column(column,column,col_width)
-    column+=1
+    column=0
+    for col_width in headers_width:
+      worksheet[ks_type].set_column(column,column,col_width)
+      column+=1
 
   header_format1 = workbook.add_format({
       'bold': True,
@@ -291,122 +304,125 @@ for cluster_url in data_url:
       'italic': True,
       'valign': 'top'})
 
-  row=0
-  column=0
-  for header in headers:
-      if header == '':
-        worksheet.write(row,column,header)
-      else:
-        worksheet.write(row,column,header,header_format1)
-      column+=1
+  for ks_type in ks_type_array:
+    column=0
+    for header in headers:
+        if header == '':
+          worksheet[ks_type].write(0,column,header)
+        else:
+          worksheet[ks_type].write(0,column,header,header_format1)
+        column+=1
+
+  for ks_type in ks_type_array:
+    row = {'app':1,'sys':1}
+    perc_reads = 0.0
+    column = 0
+    for reads in read_count[ks_type]:
+      perc_reads = float(read_subtotal[ks_type]) / float(total_reads[ks_type])
+      if (perc_reads <= read_threshold):
+        ks = reads['keyspace']
+        tbl = reads['table']
+        cnt = reads['count']
+        try:
+          type(table_totals[ks])
+        except:
+          table_totals[ks] = {}
+        table_totals[ks][tbl] = {'reads':cnt,'writes':'n/a'}
+        read_subtotal[ks_type] += cnt
+        worksheet[ks_type].write(row[ks_type],column,ks,data_format)
+        worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
+        worksheet[ks_type].write(row[ks_type],column+2,cnt,data_format)
+        worksheet[ks_type].write(row[ks_type],column+3,round(float(cnt)/total_uptime,3),data_format)
+        worksheet[ks_type].write(row[ks_type],column+4,round(float(cnt)/total_reads[ks_type]*100,3),data_format)
+        worksheet[ks_type].write(row[ks_type],column+5,round(float(cnt)/float(total_rw[ks_type])*100,3),data_format)
+        row[ks_type]+=1
+
+  for ks_type in ks_type_array:
+    perc_writes = 0.0
+    row = {'app':1,'sys':1}
+    column = 7
+    for writes in write_count[ks_type]:
+      perc_writes = float(write_subtotal[ks_type]) / float(total_writes[ks_type])
+      if (perc_writes <= write_threshold):
+        ks = writes['keyspace']
+        tbl = writes['table']
+        cnt = writes['count']
+        try:
+          type(table_totals[ks])
+        except:
+          table_totals[ks] = {}
+        try:
+          type(table_totals[ks][tbl])
+          table_totals[ks][tbl] = {'reads':table_totals[ks][tbl]['reads'],'writes':cnt}
+        except:
+          table_totals[ks][tbl] = {'reads':'n/a','writes':cnt}
+        write_subtotal[ks_type] += cnt
+        worksheet[ks_type].write(row[ks_type],column,ks,data_format)
+        worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
+        worksheet[ks_type].write(row[ks_type],column+2,cnt,data_format)
+        worksheet[ks_type].write(row[ks_type],column+3,round(float(cnt)/total_uptime,3),data_format)
+        worksheet[ks_type].write(row[ks_type],column+4,round(float(cnt)/total_writes[ks_type]*100,3),data_format)
+        worksheet[ks_type].write(row[ks_type],column+5,round(float(cnt)/float(total_rw[ks_type])*100,3),data_format)
+        row[ks_type]+=1
+
+    total_tps = float(total_rw[ks_type])/total_uptime
+    total_tpd = total_tps*60*60*24
+    total_tpmo = total_tps*60*60*24*365/12
+    days_uptime = total_uptime/60/60/24
+
+    if (total_tpd>=1000000000):
+      tpd_value = total_tpd/1000000000
+      tpd_unit = 'Billions'
+    elif (total_tpd>=1000000):
+      tpd_value = total_tpd/1000000
+      tpd_unit = 'Millions'
+    elif (total_tpd>=1000):
+      tpd_value = total_tpd/1000
+      tpd_unit = 'Thousands'
+
+    if (total_tpmo>=1000000000000):
+      tpmo_value = total_tpmo/1000000000000
+      tpmo_unit = 'Trillions'
+    elif (total_tpmo>=1000000000):
+      tpmo_value = total_tpmo/1000000000
+      tpmo_unit = 'Billions'
+    elif (total_tpmo>=1000000):
+      tpmo_value = total_tpmo/1000000
+      tpmo_unit = 'Millions'
+    elif (total_tpmo>=1000):
+      tpmo_value = total_tpmo/1000
+      tpmo_unit = 'Thousands'
+
+
+    column=14
+    worksheet[ks_type].write(1,column,'Reads',header_format3)
+    worksheet[ks_type].write(1,column+1,total_reads[ks_type],data_format)
+    worksheet[ks_type].write(2,column,'Reads TPS',header_format3)
+    worksheet[ks_type].write(2,column+1,round(total_reads[ks_type]/total_uptime,3),data_format)
+    worksheet[ks_type].write(3,column,'Reads % RW',header_format3)
+    worksheet[ks_type].write(3,column+1,round(total_reads[ks_type]/float(total_rw[ks_type])*100,3),data_format)
+    worksheet[ks_type].write(4,column,'Writes',header_format3)
+    worksheet[ks_type].write(4,column+1,total_writes[ks_type],data_format)
+    worksheet[ks_type].write(5,column,'Writes TPS',header_format3)
+    worksheet[ks_type].write(5,column+1,round(total_writes[ks_type]/total_uptime,3),data_format)
+    worksheet[ks_type].write(6,column,'Writes % RW',header_format3)
+    worksheet[ks_type].write(6,column+1,round(total_writes[ks_type]/float(total_rw[ks_type])*100,3),data_format)
+    worksheet[ks_type].write(7,column,'RW',header_format3)
+    worksheet[ks_type].write(7,column+1,total_rw[ks_type],data_format)
+    worksheet[ks_type].write(8,column,'*Total Log Time (Seconds)',header_format3)
+    worksheet[ks_type].write(8,column+1,total_uptime,data_format)
+    worksheet[ks_type].write(9,column,'*Total Log Time (Days)',header_format3)
+    worksheet[ks_type].write(9,column+1,days_uptime,data_format)
+    worksheet[ks_type].write(10,column,'TPS',header_format3)
+    worksheet[ks_type].write(10,column+1,round(total_tps,3),data_format)
+    worksheet[ks_type].write(11,column,'TPD ('+tpd_unit+')',header_format3)
+    worksheet[ks_type].write(11,column+1,round(tpd_value,3),data_format)
+    worksheet[ks_type].write(12,column,'**TPMO ('+tpmo_unit+')',header_format3)
+    worksheet[ks_type].write(12,column+1,round(tpmo_value,3),data_format)
+    worksheet[ks_type].write(14,column,'NOTE: Transaction totals include all nodes (nodetool cfstats)',data_format2)
+    worksheet[ks_type].write(15,column,'* Uptimes is the total all node uptimes (nodetool info)',data_format2)
+    worksheet[ks_type].write(16,column,'** TPMO (transactions per month) is calculated at 30.41667 days (365/12)',data_format2)
   
-  perc_reads = 0.0
-  row = 1
-  column = 0
-  for reads in read_count:
-    perc_reads = float(read_subtotal) / float(total_reads)
-    if (perc_reads <= read_threshold):
-      ks = reads['keyspace']
-      tbl = reads['table']
-      cnt = reads['count']
-      try:
-        type(table_totals[ks])
-      except:
-        table_totals[ks] = {}
-      table_totals[ks][tbl] = {'reads':cnt,'writes':'n/a'}
-      read_subtotal += cnt
-      worksheet.write(row,column,ks,data_format)
-      worksheet.write(row,column+1,tbl,data_format)
-      worksheet.write(row,column+2,cnt,data_format)
-      worksheet.write(row,column+3,round(float(cnt)/total_uptime,3),data_format)
-      worksheet.write(row,column+4,round(float(cnt)/total_reads*100,3),data_format)
-      worksheet.write(row,column+5,round(float(cnt)/float(total_rw)*100,3),data_format)
-      row+=1
-
-  perc_writes = 0.0
-  row = 1
-  column = 7
-  for writes in write_count:
-    perc_writes = float(write_subtotal) / float(total_writes)
-    if (perc_writes <= write_threshold):
-      ks = writes['keyspace']
-      tbl = writes['table']
-      cnt = writes['count']
-      try:
-        type(table_totals[ks])
-      except:
-        table_totals[ks] = {}
-      try:
-        type(table_totals[ks][tbl])
-        table_totals[ks][tbl] = {'reads':table_totals[ks][tbl]['reads'],'writes':cnt}
-      except:
-        table_totals[ks][tbl] = {'reads':'n/a','writes':cnt}
-      write_subtotal += writes['count']
-      worksheet.write(row,column,ks,data_format)
-      worksheet.write(row,column+1,tbl,data_format)
-      worksheet.write(row,column+2,cnt,data_format)
-      worksheet.write(row,column+3,round(float(cnt)/total_uptime,3),data_format)
-      worksheet.write(row,column+4,round(float(cnt)/total_writes*100,3),data_format)
-      worksheet.write(row,column+5,round(float(cnt)/float(total_rw)*100,3),data_format)
-      row+=1
-
-  total_tps = float(total_rw)/total_uptime
-  total_tpd = total_tps*60*60*24
-  total_tpmo = total_tps*60*60*24*365/12
-  days_uptime = total_uptime/60/60/24
-
-  if (total_tpd>=1000000000):
-    tpd_value = total_tpd/1000000000
-    tpd_unit = 'Billions'
-  elif (total_tpd>=1000000):
-    tpd_value = total_tpd/1000000
-    tpd_unit = 'Millions'
-  elif (total_tpd>=1000):
-    tpd_value = total_tpd/1000
-    tpd_unit = 'Thousands'
-
-  if (total_tpmo>=1000000000000):
-    tpmo_value = total_tpmo/1000000000000
-    tpmo_unit = 'Trillions'
-  elif (total_tpmo>=1000000000):
-    tpmo_value = total_tpmo/1000000000
-    tpmo_unit = 'Billions'
-  elif (total_tpmo>=1000000):
-    tpmo_value = total_tpmo/1000000
-    tpmo_unit = 'Millions'
-  elif (total_tpmo>=1000):
-    tpmo_value = total_tpmo/1000
-    tpmo_unit = 'Thousands'
-
-
-  column=14
-  worksheet.write(1,column,'Reads',header_format3)
-  worksheet.write(1,column+1,total_reads,data_format)
-  worksheet.write(2,column,'Reads TPS',header_format3)
-  worksheet.write(2,column+1,round(total_reads/total_uptime,3),data_format)
-  worksheet.write(3,column,'Reads % RW',header_format3)
-  worksheet.write(3,column+1,round(total_reads/float(total_rw)*100,3),data_format)
-  worksheet.write(4,column,'Writes',header_format3)
-  worksheet.write(4,column+1,total_writes,data_format)
-  worksheet.write(5,column,'Writes TPS',header_format3)
-  worksheet.write(5,column+1,round(total_writes/total_uptime,3),data_format)
-  worksheet.write(6,column,'Writes % RW',header_format3)
-  worksheet.write(6,column+1,round(total_writes/float(total_rw)*100,3),data_format)
-  worksheet.write(7,column,'RW',header_format3)
-  worksheet.write(7,column+1,total_rw,data_format)
-  worksheet.write(8,column,'Total Log Time (Seconds)',header_format3)
-  worksheet.write(8,column+1,total_uptime,data_format)
-  worksheet.write(9,column,'Total Log Time (Days)',header_format3)
-  worksheet.write(9,column+1,days_uptime,data_format)
-  worksheet.write(10,column,'Application TPS',header_format3)
-  worksheet.write(10,column+1,round(total_tps,3),data_format)
-  worksheet.write(11,column,'Application TPD ('+tpd_unit+')',header_format3)
-  worksheet.write(11,column+1,round(tpd_value,3),data_format)
-  worksheet.write(12,column,'Application *TPMO ('+tpmo_unit+')',header_format3)
-  worksheet.write(12,column+1,round(tpmo_value,3),data_format)
-  worksheet.write(14,column,'NOTE: Transaction totals include all nodes (nodetool cfstats)',data_format2)
-  worksheet.write(15,column,'* Uptimes is the total all node uptimes (nodetool info)',data_format2)
-  worksheet.write(16,column,'** TPMO (transactions per month) is calculated at 30.41667 days (365/12)',data_format2)
   workbook.close()
 exit();
 
