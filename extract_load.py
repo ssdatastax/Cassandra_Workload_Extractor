@@ -89,6 +89,7 @@ if show_help:
   '                       [-p PATH_TO_DIAG_FOLDER]\n'\
   '                       [-rt READ_THRESHOLD]\n'\
   '                       [-wt WRITE_THRESHOLD]\n'\
+  '                       [-sys INCLUDE SYSTEM KEYSPACES]\n'\
   'optional arguments:\n'\
   '-h, --help             This help info\n'\
   '-p                     Path to the diagnostics folder\n'\
