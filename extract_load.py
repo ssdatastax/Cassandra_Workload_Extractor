@@ -58,8 +58,8 @@ def rwTag(writeFile,rwCQL,ks,tbl,tbl_info,ratio='n'):
 
 data_url = []
 system_keyspace = ['OpsCenter','dse_insights_local','solr_admin','test','dse_system','dse_analytics','system_auth','system_traces','system','dse_system_local','system_distributed','system_schema','dse_perf','dse_insights','dse_security','killrvideo','dse_leases','dsefs_c4z','HiveMetaStore','dse_analytics','dsefs']
-headers=["Keyspace","Table","Total Reads","Average TPS","% Reads","% RW","","Keyspace","Table","Total Writes","Average TPS","% Writes","% RW","","TOTALS"]
-headers_width=[14,25,17,13,9,9,3,14,25,17,13,9,9,3,25,20]
+headers=["Keyspace","Table","Table Size","","Keyspace","Table","Total Reads","Average TPS","% Reads","% RW","","Keyspace","Table","Total Writes","Average TPS","% Writes","% RW","","TOTALS"]
+headers_width=[14,25,17,3,14,25,17,13,9,9,3,14,25,17,13,9,9,3,25,20]
 ks_type_abbr = {'app':'Application','sys':'System'}
 read_threshold = 1
 write_threshold = 1
@@ -111,15 +111,17 @@ for cluster_url in data_url:
   is_index = 0
   read_subtotal = {'app':0,'sys':0}
   write_subtotal = {'app':0,'sys':0}
+  total_size = {'app':0,'sys':0}
   total_reads = {'app':0,'sys':0}
   total_writes = {'app':0,'sys':0}
   read_count = {'app':[],'sys':[]}
   write_count = {'app':[],'sys':[]}
   total_rw = {'app':0,'sys':0}
   count = 0
+  size_table = {'app':{},'sys':{}}
   read_table = {}
   write_table = {}
-  write_table2 = {}
+  size_totals = {}
   table_totals = {}
   total_uptime = 0
 
@@ -158,6 +160,19 @@ for cluster_url in data_url:
           is_index = 0
         if("Table (index): " in line):
           is_index = 1
+        if ("Space used (live): " in line):
+          tsize = int(line.split(":")[1].strip())
+          if (tsize > 0):
+            total_size[ks_type] += tsize
+            try:
+              type(size_table[ks_type][ks])
+            except:
+              size_table[ks_type][ks] = {}
+            try:
+              type(size_table[ks_type][ks][tbl])
+              size_table[ks_type][ks][tbl] += tsize
+            except:
+              size_table[ks_type][ks][tbl] = tsize
         if("Local read count: " in line):
           count = int(line.split(":")[1].strip())
           if (count > 0):
@@ -372,10 +387,11 @@ for cluster_url in data_url:
       'bg_color': '#3A3A42'})
 
   for ks_type in ks_type_array:
-    worksheet[ks_type].merge_range('A1:P1', 'Workload for '+cluster_name, title_format3)
-    worksheet[ks_type].merge_range('A2:F2', 'READS', title_format)
-    worksheet[ks_type].merge_range('H2:M2', 'WRITES', title_format)
-    worksheet[ks_type].merge_range('O2:P2', 'TOTALS', title_format)
+    worksheet[ks_type].merge_range('A1:T1', 'Workload for '+cluster_name, title_format3)
+    worksheet[ks_type].merge_range('A2:C2', 'Table Size', title_format)
+    worksheet[ks_type].merge_range('E2:J2', 'Reads', title_format)
+    worksheet[ks_type].merge_range('L2:Q2', 'Writes', title_format)
+    worksheet[ks_type].merge_range('S2:T2', 'Ttotals', title_format)
 
   for ks_type in ks_type_array:
     column=0
@@ -389,9 +405,21 @@ for cluster_url in data_url:
   last_row = 0
 
   for ks_type in ks_type_array:
-    row = {'app':3,'sys':4}
+    row = {'app':3,'sys':3}
     perc_reads = 0.0
     column = 0
+    for ks,t_data in size_table[ks_type].items():
+      for tbl,t_size in t_data.items():
+        worksheet[ks_type].write(row[ks_type],column,ks,data_format)
+        worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
+        worksheet[ks_type].write(row[ks_type],column+2,t_size,num_format1)
+        row[ks_type]+=1
+
+    last_row = row[ks_type]
+
+    row = {'app':3,'sys':3}
+    perc_reads = 0.0
+    column = 4
     for reads in read_count[ks_type]:
       perc_reads = float(read_subtotal[ks_type]) / float(total_reads[ks_type])
       if (perc_reads <= read_threshold):
@@ -412,11 +440,11 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type]),perc_format)
         row[ks_type]+=1
   
-    last_row = row[ks_type]
+    if (last_row<row[ks_type]): last_row=row[ks_type]
 
     perc_writes = 0.0
     row = {'app':3,'sys':3}
-    column = 7
+    column = 11
     for writes in write_count[ks_type]:
       perc_writes = float(write_subtotal[ks_type]) / float(total_writes[ks_type])
       if (perc_writes <= write_threshold):
@@ -443,11 +471,11 @@ for cluster_url in data_url:
 
     if (last_row<row[ks_type]): last_row=row[ks_type]
     if (last_row<16): last_row=16
-    worksheet[ks_type].merge_range('A'+str(last_row+3)+':P'+str(last_row+3), 'NOTES', title_format2)
-    worksheet[ks_type].merge_range('A'+str(last_row+4)+':P'+str(last_row+4), 'Transaction totals (Reads/Writes) include all nodes (nodetool cfstats)', data_format)
-    worksheet[ks_type].merge_range('A'+str(last_row+5)+':P'+str(last_row+5), 'Log Times (which is used to calculate TPS...) is a sum of the uptimes of all nodes', data_format)
-    worksheet[ks_type].merge_range('A'+str(last_row+6)+':P'+str(last_row+6), '% RW is the Read or Write % of the total reads and writes', data_format)
-    worksheet[ks_type].merge_range('A'+str(last_row+7)+':P'+str(last_row+7), '* TPMO - transactions per month is calculated at 30.4375 days (365.25/12)', data_format)
+    worksheet[ks_type].merge_range('A'+str(last_row+3)+':D'+str(last_row+3), 'NOTES', title_format2)
+    worksheet[ks_type].merge_range('A'+str(last_row+4)+':D'+str(last_row+4), 'Transaction totals (Reads/Writes) include all nodes (nodetool cfstats)', data_format)
+    worksheet[ks_type].merge_range('A'+str(last_row+5)+':D'+str(last_row+5), 'Log Times (which is used to calculate TPS...) is a sum of the uptimes of all nodes', data_format)
+    worksheet[ks_type].merge_range('A'+str(last_row+6)+':D'+str(last_row+6), '% RW is the Read or Write % of the total reads and writes', data_format)
+    worksheet[ks_type].merge_range('A'+str(last_row+7)+':D'+str(last_row+7), '* TPMO - transactions per month is calculated at 30.4375 days (365.25/12)', data_format)
 
     reads_tps = total_reads[ks_type]/total_uptime
     reads_tpd = reads_tps*60*60*24
@@ -463,7 +491,7 @@ for cluster_url in data_url:
     days_uptime = total_uptime/60/60/24
 
     row=1
-    column=14
+    column=18
     worksheet[ks_type].write(row+1,column,'Reads',header_format4)
     worksheet[ks_type].write(row+1,column+1,total_reads[ks_type],num_format3)
     worksheet[ks_type].write(row+2,column,'Reads Average TPS',header_format3)
@@ -496,7 +524,9 @@ for cluster_url in data_url:
     worksheet[ks_type].write(row+15,column+1,total_tpd,num_format1)
     worksheet[ks_type].write(row+16,column,'Total Average TPMO*',header_format3)
     worksheet[ks_type].write(row+16,column+1,total_tpmo,num_format1)
-  
+    worksheet[ks_type].write(row+17,column,ks_type_abbr[ks_type] + ' Data Size',header_format4)
+    worksheet[ks_type].write(row+17,column+1,total_size[ks_type],num_format3)
+
   workbook.close()
 exit();
 
