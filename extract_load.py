@@ -524,8 +524,8 @@ for cluster_url in data_url:
     worksheet[ks_type].write(row+15,column+1,total_tpd,num_format1)
     worksheet[ks_type].write(row+16,column,'Total Average TPMO*',header_format3)
     worksheet[ks_type].write(row+16,column+1,total_tpmo,num_format1)
-    worksheet[ks_type].write(row+17,column,ks_type_abbr[ks_type] + ' Data Size',header_format4)
-    worksheet[ks_type].write(row+17,column+1,total_size[ks_type],num_format3)
+    worksheet[ks_type].write(row+17,column,ks_type_abbr[ks_type] + ' Data Size (GB)',header_format4)
+    worksheet[ks_type].write(row+17,column+1,total_size[ks_type]/1000000000,num_format3)
 
   workbook.close()
 exit();
