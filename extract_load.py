@@ -148,9 +148,10 @@ for cluster_url in data_url:
       total_uptime = total_uptime + int(get_param(infopath,"Uptime",3))
 
       ks = ''
-
+      tbl = ''
       for line in cfstatFile:
         line = line.strip('\n').strip()
+        if (line==""): tbl = "";
         if("Keyspace" in line):
           ks = line.split(":")[1].strip()
         if ks not in system_keyspace and ks != '': ks_type='app'
@@ -158,9 +159,10 @@ for cluster_url in data_url:
         if("Table: " in line):
           tbl = line.split(":")[1].strip()
           is_index = 0
-        if("Table (index): " in line):
+        if(tbl and "Table (index): " in line):
+          tbl = line.split(":")[1].strip()
           is_index = 1
-        if ("Space used (live): " in line):
+        if (tbl and "Space used (live): " in line):
           tsize = int(line.split(":")[1].strip())
           if (tsize > 0):
             total_size[ks_type] += tsize
@@ -173,7 +175,7 @@ for cluster_url in data_url:
               size_table[ks_type][ks][tbl] += tsize
             except:
               size_table[ks_type][ks][tbl] = tsize
-        if("Local read count: " in line):
+        if(tbl and "Local read count: " in line):
           count = int(line.split(":")[1].strip())
           if (count > 0):
             total_reads[ks_type] += count
@@ -186,7 +188,7 @@ for cluster_url in data_url:
               read_table[ks][tbl] += count
             except:
               read_table[ks][tbl] = count
-        if (is_index == 0):
+        if (tbl and is_index == 0):
           if("Local write count: " in line):
             count = int(line.split(":")[1].strip())
             if (count > 0):
@@ -391,7 +393,7 @@ for cluster_url in data_url:
     worksheet[ks_type].merge_range('A2:C2', 'Table Size', title_format)
     worksheet[ks_type].merge_range('E2:J2', 'Reads', title_format)
     worksheet[ks_type].merge_range('L2:Q2', 'Writes', title_format)
-    worksheet[ks_type].merge_range('S2:T2', 'Ttotals', title_format)
+    worksheet[ks_type].merge_range('S2:T2', 'Totals', title_format)
 
   for ks_type in ks_type_array:
     column=0
