@@ -203,63 +203,6 @@ for cluster_url in data_url:
               except:
                 write_table[ks][tbl] = count
 
-  schema = rootPath + node + "/driver/schema"
-  schemaFile = open(schema, "r")
-  ks = ""
-  tbl = ""
-  create_stmt = {}
-  tbl_data = {}
-  for line in schemaFile:
-    line = line.strip('\n').strip()
-    if("CREATE KEYSPACE" in line):
-      prev_ks = ks
-      ks = line.split()[2].strip('"')
-      tbl_data[ks] = {'cql':line}
-    elif("CREATE INDEX" in line):
-      prev_tbl = tbl
-      tbl = line.split()[2].strip('"')
-      tbl_data[ks][tbl] = {'type':'Index', 'cql':line}
-    elif("CREATE CUSTOM INDEX" in line):
-      prev_tbl = tbl
-      tbl = line.split()[2].strip('"')
-      tbl_data[ks][tbl] = {'type':'Custom Index', 'cql':line}
-    elif("CREATE TYPE" in line):
-      prev_tbl = tbl
-      tbl_line = line.split()[2].strip()
-      tbl = tbl_line.split(".")[1].strip().strip('"')
-      tbl_data[ks][tbl] = {'type':'Type', 'cql':line}
-      tbl_data[ks][tbl]['field'] = {}
-    elif("CREATE TABLE" in line):
-      prev_tbl = tbl
-      tbl_line = line.split()[2].strip()
-      tbl = tbl_line.split(".")[1].strip().strip('"')
-      tbl_data[ks][tbl] = {'type':'Table', 'cql':line}
-      tbl_data[ks][tbl]['field'] = {}
-    elif("CREATE MATERIALIZED VIEW" in line ):
-      prev_tbl = tbl
-      tbl_line = line.split()[3].strip()
-      tbl = tbl_line.split(".")[1].strip().strip('"')
-      tbl_data[ks][tbl] = {'type':'Materialized View', 'cql':line}
-      tbl_data[ks][tbl]['field'] = {}
-    elif("PRIMARY KEY" in line):
-      if(line.count('(') == 1):
-        tbl_data[ks][tbl]['pk'] = [line.split('(')[1].split(')')[0].split(', ')[0]]
-        tbl_data[ks][tbl]['cc'] = line.split('(')[1].split(')')[0].split(', ')
-        del tbl_data[ks][tbl]['cc'][0]
-      elif(line.count('(') == 2):
-        tbl_data[ks][tbl]['pk'] = line.split('(')[2].split(')')[0].split(', ')
-        tbl_data[ks][tbl]['cc'] = line.split('(')[2].split(')')[1].lstrip(', ').split(', ')
-      tbl_data[ks][tbl]['cql'] += ' ' + line.strip()
-    elif line != '' and line.strip() != ');':
-      try:
-        tbl_data[ks][tbl]['cql'] += ' ' + line
-        if('AND ' not in line and ' WITH ' not in line):
-          fld_name = line.split()[0]
-          fld_type = line.split()[1].strip(',')
-          tbl_data[ks][tbl]['field'][fld_name]=fld_type
-      except:
-        print("Error1:" + ks + "." + tbl + " - " + line)
-
   for ks,readtable in read_table.items():
     if ks not in system_keyspace and ks != '': ks_type='app'
     else: ks_type='sys'
