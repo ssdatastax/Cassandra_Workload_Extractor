@@ -26,6 +26,18 @@ Install xlsxwriter and Pandas
 
 After cloning this project, download a diagnostic tarball from a targeted Cassandra cluster through DSE OpsCenter or using the Cassandra Diagnostic Collection Tool - https://github.com/datastax-toolkit/diagnostic-collection. 
 
+Note:  If you are using the Cassandra Diagnostic Collection tool, it is easiest to collect a complete cluster diag tarball at once using: 
+```sh
+./collect_diag.sh -t dse -f mhosts -r -s \
+  "-i ~/.ssh/private_key -o StrictHostKeyChecking=no -o User=automaton"
+```
+or for open source cassandra:
+```sh
+./collect_diag.sh -t oss -f mhosts -r -s \
+  "-i ~/.ssh/private_key -o StrictHostKeyChecking=no -o User=automaton"
+```
+The mhost file is a file with a list of nodes (one per line)
+
 ### Commands and Arguments
 
 #### Creating the Cluster Load Spreadsheet
