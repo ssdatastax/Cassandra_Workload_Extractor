@@ -22,23 +22,21 @@ This code was created to assist in identifying average tps numbers.  For so long
 <!-- GETTING STARTED -->
 ## Getting Started
 
-After cloning the Cassandra Wokload Extractor project, download a diagnostic tarball from a targeted Cassandra cluster through DSE OpsCenter. 
+Install xlsxwriter and Pandas
 
-If you do not have DSE Opscenter collect the following files and add the in the file structure below.
-Run the following nodetool commands on each node
- - nodetool cfstats > cfstats
- - nodetool info > info
- - nodetool describecluster > describecluster
+After cloning this project, download a diagnostic tarball from a targeted Cassandra cluster through DSE OpsCenter or using the Cassandra Diagnostic Collection Tool - https://github.com/datastax-toolkit/diagnostic-collection. 
 
+Note:  If you are using the Cassandra Diagnostic Collection tool, it is easiest to collect a complete cluster diag tarball at once using: 
+```sh
+./collect_diag.sh -t dse -f mhosts -r -s \
+  "-i ~/.ssh/private_key -o StrictHostKeyChecking=no -o User=automaton"
 ```
-[Cluster_Name]
-  nodes
-    [ipaddress]
-      nodetool
-        cfsats
-        info
-        describecluster
+or for open source cassandra:
+```sh
+./collect_diag.sh -t oss -f mhosts -r -s \
+  "-i ~/.ssh/private_key -o StrictHostKeyChecking=no -o User=automaton"
 ```
+mhost is a file with a list of nodes (one per line)
 
 ### Commands and Arguments
 
