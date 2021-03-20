@@ -58,7 +58,7 @@ def rwTag(writeFile,rwCQL,ks,tbl,tbl_info,ratio='n'):
 
 data_url = []
 system_keyspace = ['OpsCenter','dse_insights_local','solr_admin','test','dse_system','dse_analytics','system_auth','system_traces','system','dse_system_local','system_distributed','system_schema','dse_perf','dse_insights','dse_security','killrvideo','dse_leases','dsefs_c4z','HiveMetaStore','dse_analytics','dsefs']
-headers=["Keyspace","Table","Table Size","","Keyspace","Table","Total Reads","Average TPS","% Reads","% RW","","Keyspace","Table","Total Writes","Average TPS","% Writes","% RW","","TOTALS"]
+headers=["Keyspace","Table","Table Size","","Keyspace","Table","Total Read Req","Average TPS","% Reads","% RW","","Keyspace","Table","Total Write Req","Average TPS","% Writes","% RW","","TOTALS"]
 headers_width=[14,25,17,3,14,25,17,13,9,9,3,14,25,17,13,9,9,3,25,20]
 ks_type_abbr = {'app':'Application','sys':'System'}
 read_threshold = 1
@@ -124,6 +124,8 @@ for cluster_url in data_url:
   size_totals = {}
   table_totals = {}
   total_uptime = 0
+  table_tps={}
+  node_uptime = {}
 
   rootPath = cluster_url + "/nodes/"
   for node in os.listdir(rootPath):
@@ -145,7 +147,8 @@ for cluster_url in data_url:
         cfstatFile = open(tablestat, "r")
  
       cluster_name = get_param(clusterpath,"Name:",1)
-      total_uptime = total_uptime + int(get_param(infopath,"Uptime",3))
+      node_uptime[node] = int(get_param(infopath,'Uptime',3))
+      total_uptime = total_uptime + int(node_uptime[node])
 
       ks = ''
       tbl = ''
@@ -156,12 +159,20 @@ for cluster_url in data_url:
           ks = line.split(":")[1].strip()
         if ks not in system_keyspace and ks != '': ks_type='app'
         else: ks_type='sys'
+        try:
+          type(table_tps[ks])
+        except:
+          table_tps[ks]={}
         if("Table: " in line):
           tbl = line.split(":")[1].strip()
           is_index = 0
-        if(tbl and "Table (index): " in line):
+        elif("Table (index): " in line):
           tbl = line.split(":")[1].strip()
           is_index = 1
+        try:
+          type(table_tps[ks][tbl])
+        except:
+          table_tps[ks][tbl]={}
         if (tbl and "Space used (live): " in line):
           tsize = int(line.split(":")[1].strip())
           if (tsize > 0):
@@ -180,6 +191,10 @@ for cluster_url in data_url:
           if (count > 0):
             total_reads[ks_type] += count
             try:
+              table_tps[ks][tbl]['read'] += float(count) / float(node_uptime[node])
+            except:
+              table_tps[ks][tbl]['read'] = float(count) / float(node_uptime[node])
+            try:
               type(read_table[ks])
             except:
               read_table[ks] = {}
@@ -194,6 +209,10 @@ for cluster_url in data_url:
             if (count > 0):
               total_writes[ks_type] += count
               try:
+                table_tps[ks][tbl]['write'] += float(count) / float(node_uptime[node])
+              except:
+                table_tps[ks][tbl]['write'] = float(count) / float(node_uptime[node])
+              try:
                 type(write_table[ks])
               except:
                 write_table[ks] = {}
@@ -202,6 +221,64 @@ for cluster_url in data_url:
                 write_table[ks][tbl] += count
               except:
                 write_table[ks][tbl] = count
+    
+      schema = rootPath + node + "/driver/schema"
+      schemaFile = open(schema, "r")
+      ks = ""
+      tbl = ""
+      create_stmt = {}
+      tbl_data = {}
+      for line in schemaFile:
+        line = line.strip('\n').strip()
+        if("CREATE KEYSPACE" in line):
+          prev_ks = ks
+          ks = line.split()[2].strip('"')
+          tbl_data[ks] = {'cql':line}
+          
+        elif("CREATE INDEX" in line):
+          prev_tbl = tbl
+          tbl = line.split()[2].strip('"')
+          tbl_data[ks][tbl] = {'type':'Index', 'cql':line}
+        elif("CREATE CUSTOM INDEX" in line):
+          prev_tbl = tbl
+          tbl = line.split()[2].strip('"')
+          tbl_data[ks][tbl] = {'type':'Custom Index', 'cql':line}
+        elif("CREATE TYPE" in line):
+          prev_tbl = tbl
+          tbl_line = line.split()[2].strip()
+          tbl = tbl_line.split(".")[1].strip().strip('"')
+          tbl_data[ks][tbl] = {'type':'Type', 'cql':line}
+          tbl_data[ks][tbl]['field'] = {}
+        elif("CREATE TABLE" in line):
+          prev_tbl = tbl
+          tbl_line = line.split()[2].strip()
+          tbl = tbl_line.split(".")[1].strip().strip('"')
+          tbl_data[ks][tbl] = {'type':'Table', 'cql':line}
+          tbl_data[ks][tbl]['field'] = {}
+        elif("CREATE MATERIALIZED VIEW" in line ):
+          prev_tbl = tbl
+          tbl_line = line.split()[3].strip()
+          tbl = tbl_line.split(".")[1].strip().strip('"')
+          tbl_data[ks][tbl] = {'type':'Materialized View', 'cql':line}
+          tbl_data[ks][tbl]['field'] = {}
+        elif("PRIMARY KEY" in line):
+          if(line.count('(') == 1):
+            tbl_data[ks][tbl]['pk'] = [line.split('(')[1].split(')')[0].split(', ')[0]]
+            tbl_data[ks][tbl]['cc'] = line.split('(')[1].split(')')[0].split(', ')
+            del tbl_data[ks][tbl]['cc'][0]
+          elif(line.count('(') == 2):
+            tbl_data[ks][tbl]['pk'] = line.split('(')[2].split(')')[0].split(', ')
+            tbl_data[ks][tbl]['cc'] = line.split('(')[2].split(')')[1].lstrip(', ').split(', ')
+          tbl_data[ks][tbl]['cql'] += ' ' + line.strip()
+        elif line != '' and line.strip() != ');':
+          try:
+            tbl_data[ks][tbl]['cql'] += ' ' + line
+            if('AND ' not in line and ' WITH ' not in line):
+              fld_name = line.split()[0]
+              fld_type = line.split()[1].strip(',')
+              tbl_data[ks][tbl]['field'][fld_name]=fld_type
+          except:
+            print("Error1:" + ks + "." + tbl + " - " + line)
 
   for ks,readtable in read_table.items():
     if ks not in system_keyspace and ks != '': ks_type='app'
@@ -334,8 +411,8 @@ for cluster_url in data_url:
   for ks_type in ks_type_array:
     worksheet[ks_type].merge_range('A1:T1', 'Workload for '+cluster_name, title_format3)
     worksheet[ks_type].merge_range('A2:C2', 'Table Size', title_format)
-    worksheet[ks_type].merge_range('E2:J2', 'Reads', title_format)
-    worksheet[ks_type].merge_range('L2:Q2', 'Writes', title_format)
+    worksheet[ks_type].merge_range('E2:J2', 'Read Requests', title_format)
+    worksheet[ks_type].merge_range('L2:Q2', 'Write Requests', title_format)
     worksheet[ks_type].merge_range('S2:T2', 'Totals', title_format)
 
   for ks_type in ks_type_array:
@@ -348,6 +425,8 @@ for cluster_url in data_url:
         column+=1
 
   last_row = 0
+  total_row = {'size':0,'read_tps':0,'write_tps':0}
+
 
   for ks_type in ks_type_array:
     row = {'app':3,'sys':3}
@@ -360,6 +439,7 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column+2,t_size,num_format1)
         row[ks_type]+=1
 
+    total_row['size'] = row[ks_type]
     last_row = row[ks_type]
 
     row = {'app':3,'sys':3}
@@ -380,11 +460,12 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column,ks,data_format)
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
         worksheet[ks_type].write(row[ks_type],column+2,cnt,num_format1)
-        worksheet[ks_type].write(row[ks_type],column+3,float(cnt)/total_uptime,num_format2)
+        worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['read'],num_format2)
         worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_reads[ks_type],perc_format)
         worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type]),perc_format)
         row[ks_type]+=1
   
+    total_row['read'] = row[ks_type]
     if (last_row<row[ks_type]): last_row=row[ks_type]
 
     perc_writes = 0.0
@@ -409,11 +490,12 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column,ks,data_format)
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
         worksheet[ks_type].write(row[ks_type],column+2,cnt,num_format1)
-        worksheet[ks_type].write(row[ks_type],column+3,float(cnt)/total_uptime,num_format2)
+        worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['write'],num_format2)
         worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_writes[ks_type],perc_format)
         worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type]),perc_format)
         row[ks_type]+=1
 
+    total_row['write'] = row[ks_type]
     if (last_row<row[ks_type]): last_row=row[ks_type]
     if (last_row<16): last_row=16
     worksheet[ks_type].merge_range('A'+str(last_row+3)+':D'+str(last_row+3), 'NOTES', title_format2)
@@ -437,40 +519,36 @@ for cluster_url in data_url:
 
     row=1
     column=18
-    worksheet[ks_type].write(row+1,column,'Reads',header_format4)
-    worksheet[ks_type].write(row+1,column+1,total_reads[ks_type],num_format3)
-    worksheet[ks_type].write(row+2,column,'Reads Average TPS',header_format3)
-    worksheet[ks_type].write(row+2,column+1,reads_tps,num_format2)
-    worksheet[ks_type].write(row+3,column,'Reads Average TPD',header_format3)
-    worksheet[ks_type].write(row+3,column+1,reads_tpd,num_format1)
-    worksheet[ks_type].write(row+4,column,'Reads Average TPMO*',header_format3)
-    worksheet[ks_type].write(row+4,column+1,reads_tpmo,num_format1)
+    worksheet[ks_type].write(row+1,column,'Read Requests',header_format4)
+    worksheet[ks_type].write(row+1,column+1,'=SUM(G4:G'+ str(total_row['read'])+')',num_format3)
+    worksheet[ks_type].write(row+2,column,'Avg Read TPS',header_format3)
+    worksheet[ks_type].write(row+2,column+1,'=SUM(H4:H'+ str(total_row['read'])+')',num_format1)
+    worksheet[ks_type].write(row+3,column,'Avg Read TPD (K)',header_format3)
+    worksheet[ks_type].write(row+3,column+1,'=T4*60*60*24/1000',num_format1)
+    worksheet[ks_type].write(row+4,column,'Avg Read TPMO* (M)',header_format3)
+    worksheet[ks_type].write(row+4,column+1,'=T5*365/12/1000',num_format1)
     worksheet[ks_type].write(row+5,column,'Reads % RW',header_format3)
-    worksheet[ks_type].write(row+5,column+1,total_reads[ks_type]/float(total_rw[ks_type]),perc_format)
-    worksheet[ks_type].write(row+6,column,'Writes',header_format4)
-    worksheet[ks_type].write(row+6,column+1,total_writes[ks_type],num_format3)
-    worksheet[ks_type].write(row+7,column,'Writes Average TPS',header_format3)
-    worksheet[ks_type].write(row+7,column+1,writes_tps,num_format2)
-    worksheet[ks_type].write(row+8,column,'Writes Average TPD',header_format3)
-    worksheet[ks_type].write(row+8,column+1,writes_tpd,num_format1)
-    worksheet[ks_type].write(row+9,column,'Writes Average TPMO*',header_format3)
-    worksheet[ks_type].write(row+9,column+1,writes_tpmo,num_format1)
+    worksheet[ks_type].write(row+5,column+1,'=T3/(T3+T8)',perc_format)
+    worksheet[ks_type].write(row+6,column,'Write Requests',header_format4)
+    worksheet[ks_type].write(row+6,column+1,'=SUM(N4:N'+ str(total_row['write'])+')',num_format3)
+    worksheet[ks_type].write(row+7,column,'Avg Write TPS',header_format3)
+    worksheet[ks_type].write(row+7,column+1,'=SUM(O4:O'+ str(total_row['write'])+')',num_format1)
+    worksheet[ks_type].write(row+8,column,'Avg Write TPD (K)',header_format3)
+    worksheet[ks_type].write(row+8,column+1,'=T9*60*60*24/1000',num_format1)
+    worksheet[ks_type].write(row+9,column,'Avg Write TPMO* (M)',header_format3)
+    worksheet[ks_type].write(row+9,column+1,'=T10*365/12/1000',num_format1)
     worksheet[ks_type].write(row+10,column,'Writes % RW',header_format3)
-    worksheet[ks_type].write(row+10,column+1,total_writes[ks_type]/float(total_rw[ks_type]),perc_format)
+    worksheet[ks_type].write(row+10,column+1,'=T8/(T3+T8)',perc_format)
     worksheet[ks_type].write(row+11,column,'Total RW (Reads+Writes)',header_format4)
     worksheet[ks_type].write(row+11,column+1,total_rw[ks_type],num_format3)
-    worksheet[ks_type].write(row+12,column,'Total Log Time (Seconds)',header_format3)
-    worksheet[ks_type].write(row+12,column+1,total_uptime,num_format1)
-    worksheet[ks_type].write(row+13,column,'Total Log Time (Days)',header_format3)
-    worksheet[ks_type].write(row+13,column+1,days_uptime,num_format1)
-    worksheet[ks_type].write(row+14,column,'Total Average TPS',header_format3)
-    worksheet[ks_type].write(row+14,column+1,total_tps,num_format1)
-    worksheet[ks_type].write(row+15,column,'Total Average TPD',header_format3)
-    worksheet[ks_type].write(row+15,column+1,total_tpd,num_format1)
-    worksheet[ks_type].write(row+16,column,'Total Average TPMO*',header_format3)
-    worksheet[ks_type].write(row+16,column+1,total_tpmo,num_format1)
-    worksheet[ks_type].write(row+17,column,ks_type_abbr[ks_type] + ' Data Size (GB)',header_format4)
-    worksheet[ks_type].write(row+17,column+1,total_size[ks_type]/1000000000,num_format3)
+    worksheet[ks_type].write(row+12,column,'Total Avg TPS',header_format3)
+    worksheet[ks_type].write(row+12,column+1,'=T4+T9',num_format1)
+    worksheet[ks_type].write(row+13,column,'Total Avg TPD (K)',header_format3)
+    worksheet[ks_type].write(row+13,column+1,'=T5+T10',num_format1)
+    worksheet[ks_type].write(row+14,column,'Total Avg TPMO* (M)',header_format3)
+    worksheet[ks_type].write(row+14,column+1,'=T6+T11',num_format1)
+    worksheet[ks_type].write(row+15,column,ks_type_abbr[ks_type] + ' Data Size (GB)',header_format4)
+    worksheet[ks_type].write(row+15,column+1,'=SUM(C4:C'+ str(total_row['size'])+')/1000000000',num_format3)
 
   workbook.close()
 exit();
