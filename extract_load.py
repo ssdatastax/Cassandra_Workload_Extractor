@@ -500,9 +500,8 @@ for cluster_url in data_url:
     if (last_row<16): last_row=16
     worksheet[ks_type].merge_range('A'+str(last_row+3)+':D'+str(last_row+3), 'NOTES', title_format2)
     worksheet[ks_type].merge_range('A'+str(last_row+4)+':D'+str(last_row+4), 'Transaction totals (Reads/Writes) include all nodes (nodetool cfstats)', data_format)
-    worksheet[ks_type].merge_range('A'+str(last_row+5)+':D'+str(last_row+5), 'Log Times (which is used to calculate TPS...) is a sum of the uptimes of all nodes', data_format)
-    worksheet[ks_type].merge_range('A'+str(last_row+6)+':D'+str(last_row+6), '% RW is the Read or Write % of the total reads and writes', data_format)
-    worksheet[ks_type].merge_range('A'+str(last_row+7)+':D'+str(last_row+7), '* TPMO - transactions per month is calculated at 30.4375 days (365.25/12)', data_format)
+    worksheet[ks_type].merge_range('A'+str(last_row+5)+':D'+str(last_row+6), '% RW is the Read or Write % of the total reads and writes', data_format)
+    worksheet[ks_type].merge_range('A'+str(last_row+6)+':D'+str(last_row+7), '* TPMO - transactions per month is calculated at 30.4375 days (365.25/12)', data_format)
 
     reads_tps = total_reads[ks_type]/total_uptime
     reads_tpd = reads_tps*60*60*24
@@ -526,7 +525,7 @@ for cluster_url in data_url:
     worksheet[ks_type].write(row+3,column,'Avg Read TPD (K)',header_format3)
     worksheet[ks_type].write(row+3,column+1,'=T4*60*60*24/1000',num_format1)
     worksheet[ks_type].write(row+4,column,'Avg Read TPMO* (M)',header_format3)
-    worksheet[ks_type].write(row+4,column+1,'=T5*365/12/1000',num_format1)
+    worksheet[ks_type].write(row+4,column+1,'=T5*365.25/12/1000',num_format1)
     worksheet[ks_type].write(row+5,column,'Reads % RW',header_format3)
     worksheet[ks_type].write(row+5,column+1,'=T3/(T3+T8)',perc_format)
     worksheet[ks_type].write(row+6,column,'Write Requests',header_format4)
@@ -536,7 +535,7 @@ for cluster_url in data_url:
     worksheet[ks_type].write(row+8,column,'Avg Write TPD (K)',header_format3)
     worksheet[ks_type].write(row+8,column+1,'=T9*60*60*24/1000',num_format1)
     worksheet[ks_type].write(row+9,column,'Avg Write TPMO* (M)',header_format3)
-    worksheet[ks_type].write(row+9,column+1,'=T10*365/12/1000',num_format1)
+    worksheet[ks_type].write(row+9,column+1,'=T10*365.25/12/1000',num_format1)
     worksheet[ks_type].write(row+10,column,'Writes % RW',header_format3)
     worksheet[ks_type].write(row+10,column+1,'=T8/(T3+T8)',perc_format)
     worksheet[ks_type].write(row+11,column,'Total RW (Reads+Writes)',header_format4)
