@@ -60,7 +60,7 @@ data_url = []
 system_keyspace = ['OpsCenter','dse_insights_local','solr_admin','test','dse_system','dse_analytics','system_auth','system_traces','system','dse_system_local','system_distributed','system_schema','dse_perf','dse_insights','dse_security','killrvideo','dse_leases','dsefs_c4z','HiveMetaStore','dse_analytics','dsefs']
 headers=["Keyspace","Table","Table Size","","Keyspace","Table","Total Read Req","Average TPS","% Reads","% RW","","Keyspace","Table","Total Write Req","Average TPS","% Writes","% RW","","TOTALS"]
 headers_width=[14,25,17,3,14,25,17,13,9,9,3,14,25,17,13,9,9,3,25,20]
-ks_type_abbr = {'app':'Application','sys':'System'}
+ks_type_abbr = {'app':'Application','sys':'System','clu':'Cluster'}
 read_threshold = 1
 write_threshold = 1
 include_yaml = 0
@@ -81,7 +81,7 @@ for argnum,arg in enumerate(sys.argv):
     include_system = 1
 
 if (include_system): ks_type_array=['app','sys']
-else: ks_type_array=['app']
+else: ks_type_array=['clu']
 
 if show_help:
   help_content = \
@@ -103,22 +103,23 @@ if show_help:
   '                        to be included in the output\n'\
   '                        Default: 100%\n'\
   '                        i.e. -wt 85\n'
-  '-sys                   Include System files in addtional tab\n'\
+  '-sys                   Separate Application and System files\n'\
+  '                        in seperate spreadsheet tabs\n'\
 
   exit(help_content)
 
 for cluster_url in data_url:
   is_index = 0
-  read_subtotal = {'app':0,'sys':0}
-  write_subtotal = {'app':0,'sys':0}
-  total_size = {'app':0,'sys':0}
-  total_reads = {'app':0,'sys':0}
-  total_writes = {'app':0,'sys':0}
-  read_count = {'app':[],'sys':[]}
-  write_count = {'app':[],'sys':[]}
-  total_rw = {'app':0,'sys':0}
+  read_subtotal = {'app':0,'sys':0,'clu':0}
+  write_subtotal = {'app':0,'sys':0,'clu':0}
+  total_size = {'app':0,'sys':0,'clu':0}
+  total_reads = {'app':0,'sys':0,'clu':0}
+  total_writes = {'app':0,'sys':0,'clu':0}
+  read_count = {'app':[],'sys':[],'clu':[]}
+  write_count = {'app':[],'sys':[],'clu':[]}
+  total_rw = {'app':0,'sys':0,'clu':0}
   count = 0
-  size_table = {'app':{},'sys':{}}
+  size_table = {'app':{},'sys':{},'clu':{}}
   read_table = {}
   write_table = {}
   size_totals = {}
@@ -157,8 +158,11 @@ for cluster_url in data_url:
         if (line==""): tbl = "";
         if("Keyspace" in line):
           ks = line.split(":")[1].strip()
-        if ks not in system_keyspace and ks != '': ks_type='app'
-        else: ks_type='sys'
+        if include_system==1:
+          if ks not in system_keyspace and ks != '': ks_type='app'
+          else: ks_type='sys'
+        else: ks_type='clu'
+        
         try:
           type(table_tps[ks])
         except:
@@ -281,14 +285,18 @@ for cluster_url in data_url:
             print("Error1:" + ks + "." + tbl + " - " + line)
 
   for ks,readtable in read_table.items():
-    if ks not in system_keyspace and ks != '': ks_type='app'
-    else: ks_type='sys'
+    if include_system==1:
+      if ks not in system_keyspace and ks != '': ks_type='app'
+      else: ks_type='sys'
+    else: ks_type='clu'
     for tablename,tablecount in readtable.items():
       read_count[ks_type].append({'keyspace':ks,'table':tablename,'count':tablecount})
 
   for ks,writetable in write_table.items():
-    if ks not in system_keyspace and ks != '': ks_type='app'
-    else: ks_type='sys'
+    if include_system==1:
+      if ks not in system_keyspace and ks != '': ks_type='app'
+      else: ks_type='sys'
+    else: ks_type='clu'
     for tablename,tablecount in writetable.items():
       write_count[ks_type].append({'keyspace':ks,'table':tablename,'count':tablecount})
 
@@ -409,7 +417,7 @@ for cluster_url in data_url:
       'bg_color': '#3A3A42'})
 
   for ks_type in ks_type_array:
-    worksheet[ks_type].merge_range('A1:T1', 'Workload for '+cluster_name, title_format3)
+    worksheet[ks_type].merge_range('A1:T1', ks_type_abbr[ks_type] + ' Workload for ' + cluster_name, title_format3)
     worksheet[ks_type].merge_range('A2:C2', 'Table Size', title_format)
     worksheet[ks_type].merge_range('E2:J2', 'Read Requests', title_format)
     worksheet[ks_type].merge_range('L2:Q2', 'Write Requests', title_format)
@@ -429,7 +437,7 @@ for cluster_url in data_url:
 
 
   for ks_type in ks_type_array:
-    row = {'app':3,'sys':3}
+    row = {'app':3,'sys':3,'clu':3}
     perc_reads = 0.0
     column = 0
     for ks,t_data in size_table[ks_type].items():
@@ -442,7 +450,7 @@ for cluster_url in data_url:
     total_row['size'] = row[ks_type]
     last_row = row[ks_type]
 
-    row = {'app':3,'sys':3}
+    row = {'app':3,'sys':3,'clu':3}
     perc_reads = 0.0
     column = 4
     for reads in read_count[ks_type]:
@@ -469,7 +477,7 @@ for cluster_url in data_url:
     if (last_row<row[ks_type]): last_row=row[ks_type]
 
     perc_writes = 0.0
-    row = {'app':3,'sys':3}
+    row = {'app':3,'sys':3,'clu':3}
     column = 11
     for writes in write_count[ks_type]:
       perc_writes = float(write_subtotal[ks_type]) / float(total_writes[ks_type])
