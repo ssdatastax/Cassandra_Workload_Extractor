@@ -498,10 +498,6 @@ for cluster_url in data_url:
     total_row['write'] = row[ks_type]
     if (last_row<row[ks_type]): last_row=row[ks_type]
     if (last_row<16): last_row=16
-    worksheet[ks_type].merge_range('A'+str(last_row+3)+':D'+str(last_row+3), 'NOTES', title_format2)
-    worksheet[ks_type].merge_range('A'+str(last_row+4)+':D'+str(last_row+4), 'Transaction totals (Reads/Writes) include all nodes (nodetool cfstats)', data_format)
-    worksheet[ks_type].merge_range('A'+str(last_row+5)+':D'+str(last_row+6), '% RW is the Read or Write % of the total reads and writes', data_format)
-    worksheet[ks_type].merge_range('A'+str(last_row+6)+':D'+str(last_row+7), '* TPMO - transactions per month is calculated at 30.4375 days (365.25/12)', data_format)
 
     reads_tps = total_reads[ks_type]/total_uptime
     reads_tpd = reads_tps*60*60*24
@@ -539,7 +535,7 @@ for cluster_url in data_url:
     worksheet[ks_type].write(row+10,column,'Writes % RW',header_format3)
     worksheet[ks_type].write(row+10,column+1,'=T8/(T3+T8)',perc_format)
     worksheet[ks_type].write(row+11,column,'Total RW (Reads+Writes)',header_format4)
-    worksheet[ks_type].write(row+11,column+1,total_rw[ks_type],num_format3)
+    worksheet[ks_type].write(row+11,column+1,'=T3+T8',num_format3)
     worksheet[ks_type].write(row+12,column,'Total Avg TPS',header_format3)
     worksheet[ks_type].write(row+12,column+1,'=T4+T9',num_format1)
     worksheet[ks_type].write(row+13,column,'Total Avg TPD (K)',header_format3)
@@ -548,6 +544,16 @@ for cluster_url in data_url:
     worksheet[ks_type].write(row+14,column+1,'=T6+T11',num_format1)
     worksheet[ks_type].write(row+15,column,ks_type_abbr[ks_type] + ' Data Size (GB)',header_format4)
     worksheet[ks_type].write(row+15,column+1,'=SUM(C4:C'+ str(total_row['size'])+')/1000000000',num_format3)
+
+
+    worksheet[ks_type].write_comment('G3',"The number of "+ks_type_abbr[ks_type]+" read requests on the coordinator nodes during the nodes uptime, analogous to client writes.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('H3',"The "+ks_type_abbr[ks_type]+" table's read request count divided by the uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('I3',"The "+ks_type_abbr[ks_type]+" table's read pecentage of the total read requests in the cluster.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('J3',"The "+ks_type_abbr[ks_type]+" table's pecentage of read requests of the total RW requests (read and Write) in the cluster.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('N3',"The number of "+ks_type_abbr[ks_type]+" read requests on the coordinator nodes during the nodes uptime, analogous to client writes.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('O3',"The "+ks_type_abbr[ks_type]+" table's write request count divided by the uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('P3',"The "+ks_type_abbr[ks_type]+" table's write pecentage of the total write requests in the cluster.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('Q3',"The "+ks_type_abbr[ks_type]+" table's pecentage of write requests of the total RW requests (read and Write) in the cluster.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
 
   workbook.close()
 exit();
