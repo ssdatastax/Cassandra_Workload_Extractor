@@ -468,7 +468,7 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column,ks,data_format)
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
         worksheet[ks_type].write(row[ks_type],column+2,cnt,num_format1)
-        worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['read'],num_format2)
+        worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['read']/2,num_format2)
         worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_reads[ks_type],perc_format)
         worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type]),perc_format)
         row[ks_type]+=1
@@ -498,7 +498,7 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column,ks,data_format)
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
         worksheet[ks_type].write(row[ks_type],column+2,cnt,num_format1)
-        worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['write'],num_format2)
+        worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['write']/len(tbl_data[ks][tbl]['field']),num_format2)
         worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_writes[ks_type],perc_format)
         worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type]),perc_format)
         row[ks_type]+=1
