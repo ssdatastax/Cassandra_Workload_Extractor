@@ -8,18 +8,39 @@ def sortFunc(e):
 
 # get param value
 def get_param(filepath,param_name,param_pos,ignore="",default_val="Default"):
-    if(path.exists(filepath)):
-        fileData = open(filepath, "r")
-        for line in fileData:
-            if(param_name in line):
-                if(ignore):
-                    if((ignore in line and line.find(ignore)>0) or ignore not in line):
-                        default_val = str(line.split()[param_pos].strip())
-                else:
-                    if(str(line.split()[param_pos].strip())):
-                        def_val = str(line.split()[param_pos].strip())
-                    return def_val
-    return default_val
+  if(path.exists(filepath)):
+    fileData = open(filepath, "r")
+    for line in fileData:
+      if(param_name in line):
+        if(ignore):
+          if((ignore in line and line.find(ignore)>0) or ignore not in line):
+            default_val = str(line.split()[param_pos].strip())
+        else:
+          if(str(line.split()[param_pos].strip())):
+            def_val = str(line.split()[param_pos].strip())
+          return def_val
+    try:
+      type(dc_array[dc])
+    except:
+      dc_array.append(dc)
+  return default_val
+
+# collect the dc name for each node
+def get_dc(statuspath):
+  if(path.exists(statuspath)):
+    statusFile = open(statuspath, 'r')
+    dc = ''
+    node = ''
+    for line in statusFile:
+      if('Datacenter:' in line):
+        dc = str(line.split(':')[1].strip())
+        if dc not in dc_array:
+          dc_array.append(dc)
+      elif(line.count('.')>=3):
+        node = str(line.split()[1].strip())
+        node_dc[node] = dc
+  else:
+    exclude_tab.append('node')
 
 import os.path
 from os import path
@@ -67,6 +88,7 @@ include_yaml = 0
 new_dc = ''
 show_help = ''
 include_system = 0
+
     
 for argnum,arg in enumerate(sys.argv):
   if(arg=='-h' or arg =='--help'):
@@ -117,6 +139,7 @@ for cluster_url in data_url:
   total_writes = {'app':0,'sys':0,'clu':0}
   read_count = {'app':[],'sys':[],'clu':[]}
   write_count = {'app':[],'sys':[],'clu':[]}
+  table_count = {'app':[],'sys':[],'clu':[]}
   total_rw = {'app':0,'sys':0,'clu':0}
   count = 0
   size_table = {'app':{},'sys':{},'clu':{}}
@@ -127,11 +150,98 @@ for cluster_url in data_url:
   total_uptime = 0
   table_tps={}
   node_uptime = {}
+  dc_array = []
+  node_dc = {}
 
   rootPath = cluster_url + "/nodes/"
   for node in os.listdir(rootPath):
     ckpath = rootPath + node + "/nodetool"
     if path.isdir(ckpath):
+
+      statuspath = rootPath + node + '/nodetool/status'
+      get_dc(statuspath)
+      schema = rootPath + node + "/driver/schema"
+      schemaFile = open(schema, "r")
+      ks = ""
+      tbl = ""
+      create_stmt = {}
+      tbl_data = {}
+      for line in schemaFile:
+        line = line.strip('\n').strip()
+        if("CREATE KEYSPACE" in line):
+          prev_ks = ks
+          ks = line.split()[2].strip('"')
+          tbl_data[ks] = {'cql':line,'rf':0}
+          rf=0;
+          for dc_name in dc_array:
+            if ("'"+dc_name+"':" in line):
+              i=0
+              for prt in line.split():
+                prt_chk = "'"+dc_name+"':"
+                if (prt==prt_chk):
+                  rf=line.split()[i+1].strip('}').strip(',').strip("'")
+                  tbl_data[ks]['rf']+=float(rf)
+                i+=1
+            elif("'replication_factor':" in line):
+              i=0
+              for prt in line.split():
+                prt_chk = "'replication_factor':"
+                if (prt==prt_chk):
+                  rf=line.split()[i+1].strip('}').strip(',').strip("'")
+                  tbl_data[ks]['rf']+=float(rf)
+                i+=1
+            else:tbl_data[ks]['rf']=float(1)
+
+        elif("CREATE INDEX" in line):
+          prev_tbl = tbl
+          tbl = line.split()[2].strip('"')
+          tbl_data[ks][tbl] = {'type':'Index', 'cql':line}
+        elif("CREATE CUSTOM INDEX" in line):
+          prev_tbl = tbl
+          tbl = line.split()[2].strip('"')
+          tbl_data[ks][tbl] = {'type':'Custom Index', 'cql':line}
+        elif("CREATE TYPE" in line):
+          prev_tbl = tbl
+          tbl_line = line.split()[2].strip()
+          tbl = tbl_line.split(".")[1].strip().strip('"')
+          tbl_data[ks][tbl] = {'type':'Type', 'cql':line}
+          tbl_data[ks][tbl]['field'] = {}
+        elif("CREATE TABLE" in line):
+          prev_tbl = tbl
+          tbl_line = line.split()[2].strip()
+          tbl = tbl_line.split(".")[1].strip().strip('"')
+          tbl_data[ks][tbl] = {'type':'Table', 'cql':line}
+          tbl_data[ks][tbl]['field'] = {}
+        elif("CREATE MATERIALIZED VIEW" in line ):
+          prev_tbl = tbl
+          tbl_line = line.split()[3].strip()
+          tbl = tbl_line.split(".")[1].strip().strip('"')
+          tbl_data[ks][tbl] = {'type':'Materialized View', 'cql':line}
+          tbl_data[ks][tbl]['field'] = {}
+        elif("PRIMARY KEY" in line):
+          if(line.count('(') == 1):
+            tbl_data[ks][tbl]['pk'] = [line.split('(')[1].split(')')[0].split(', ')[0]]
+            tbl_data[ks][tbl]['cc'] = line.split('(')[1].split(')')[0].split(', ')
+            del tbl_data[ks][tbl]['cc'][0]
+          elif(line.count('(') == 2):
+            tbl_data[ks][tbl]['pk'] = line.split('(')[2].split(')')[0].split(', ')
+            tbl_data[ks][tbl]['cc'] = line.split('(')[2].split(')')[1].lstrip(', ').split(', ')
+          tbl_data[ks][tbl]['cql'] += ' ' + line.strip()
+        elif line != '' and line.strip() != ');':
+          try:
+            tbl_data[ks][tbl]['cql'] += ' ' + line
+            if('AND ' not in line and ' WITH ' not in line):
+              fld_name = line.split()[0]
+              fld_type = line.split()[1].strip(',')
+              tbl_data[ks][tbl]['field'][fld_name]=fld_type
+          except:
+            print("Error1:" + ks + "." + tbl + " - " + line)
+
+
+
+
+
+
       iodata = {}
       iodata[node] = {}
       keyspace = ""
@@ -182,14 +292,14 @@ for cluster_url in data_url:
           if (tsize > 0):
             total_size[ks_type] += tsize
             try:
-              type(size_table[ks_type][ks])
+              type(size_table[ks])
             except:
-              size_table[ks_type][ks] = {}
+              size_table[ks] = {}
             try:
-              type(size_table[ks_type][ks][tbl])
-              size_table[ks_type][ks][tbl] += tsize
+              type(size_table[ks][tbl])
+              size_table[ks][tbl] += tsize
             except:
-              size_table[ks_type][ks][tbl] = tsize
+              size_table[ks][tbl] = tsize
         if(tbl and "Local read count: " in line):
           count = int(line.split(":")[1].strip())
           if (count > 0):
@@ -226,63 +336,13 @@ for cluster_url in data_url:
               except:
                 write_table[ks][tbl] = count
     
-      schema = rootPath + node + "/driver/schema"
-      schemaFile = open(schema, "r")
-      ks = ""
-      tbl = ""
-      create_stmt = {}
-      tbl_data = {}
-      for line in schemaFile:
-        line = line.strip('\n').strip()
-        if("CREATE KEYSPACE" in line):
-          prev_ks = ks
-          ks = line.split()[2].strip('"')
-          tbl_data[ks] = {'cql':line}
-          
-        elif("CREATE INDEX" in line):
-          prev_tbl = tbl
-          tbl = line.split()[2].strip('"')
-          tbl_data[ks][tbl] = {'type':'Index', 'cql':line}
-        elif("CREATE CUSTOM INDEX" in line):
-          prev_tbl = tbl
-          tbl = line.split()[2].strip('"')
-          tbl_data[ks][tbl] = {'type':'Custom Index', 'cql':line}
-        elif("CREATE TYPE" in line):
-          prev_tbl = tbl
-          tbl_line = line.split()[2].strip()
-          tbl = tbl_line.split(".")[1].strip().strip('"')
-          tbl_data[ks][tbl] = {'type':'Type', 'cql':line}
-          tbl_data[ks][tbl]['field'] = {}
-        elif("CREATE TABLE" in line):
-          prev_tbl = tbl
-          tbl_line = line.split()[2].strip()
-          tbl = tbl_line.split(".")[1].strip().strip('"')
-          tbl_data[ks][tbl] = {'type':'Table', 'cql':line}
-          tbl_data[ks][tbl]['field'] = {}
-        elif("CREATE MATERIALIZED VIEW" in line ):
-          prev_tbl = tbl
-          tbl_line = line.split()[3].strip()
-          tbl = tbl_line.split(".")[1].strip().strip('"')
-          tbl_data[ks][tbl] = {'type':'Materialized View', 'cql':line}
-          tbl_data[ks][tbl]['field'] = {}
-        elif("PRIMARY KEY" in line):
-          if(line.count('(') == 1):
-            tbl_data[ks][tbl]['pk'] = [line.split('(')[1].split(')')[0].split(', ')[0]]
-            tbl_data[ks][tbl]['cc'] = line.split('(')[1].split(')')[0].split(', ')
-            del tbl_data[ks][tbl]['cc'][0]
-          elif(line.count('(') == 2):
-            tbl_data[ks][tbl]['pk'] = line.split('(')[2].split(')')[0].split(', ')
-            tbl_data[ks][tbl]['cc'] = line.split('(')[2].split(')')[1].lstrip(', ').split(', ')
-          tbl_data[ks][tbl]['cql'] += ' ' + line.strip()
-        elif line != '' and line.strip() != ');':
-          try:
-            tbl_data[ks][tbl]['cql'] += ' ' + line
-            if('AND ' not in line and ' WITH ' not in line):
-              fld_name = line.split()[0]
-              fld_type = line.split()[1].strip(',')
-              tbl_data[ks][tbl]['field'][fld_name]=fld_type
-          except:
-            print("Error1:" + ks + "." + tbl + " - " + line)
+  for ks,sizetable in size_table.items():
+    if include_system==1:
+      if ks not in system_keyspace and ks != '': ks_type='app'
+      else: ks_type='sys'
+    else: ks_type='clu'
+    for tablename,tblsize in sizetable.items():
+      table_count[ks_type].append({'keyspace':ks,'table':tablename,'count':tblsize})
 
   for ks,readtable in read_table.items():
     if include_system==1:
@@ -303,8 +363,9 @@ for cluster_url in data_url:
   for ks_type in ks_type_array:
     read_count[ks_type].sort(reverse=True,key=sortFunc)
     write_count[ks_type].sort(reverse=True,key=sortFunc)
+    table_count[ks_type].sort(reverse=True,key=sortFunc)
     total_rw[ks_type] = total_reads[ks_type]+total_writes[ks_type]
-
+    
   #Create Cluster GC Spreadsheet
   worksheet = {}
   workbook = xlsxwriter.Workbook(cluster_url + "/" + cluster_name + "_" + "workload" + '.xlsx')
@@ -440,12 +501,16 @@ for cluster_url in data_url:
     row = {'app':3,'sys':3,'clu':3}
     perc_reads = 0.0
     column = 0
-    for ks,t_data in size_table[ks_type].items():
-      for tbl,t_size in t_data.items():
-        worksheet[ks_type].write(row[ks_type],column,ks,data_format)
-        worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
-        worksheet[ks_type].write(row[ks_type],column+2,t_size,num_format1)
-        row[ks_type]+=1
+    for sizes in table_count[ks_type]:
+      ks = sizes['keyspace']
+      tbl = sizes['table']
+      t_size = sizes['count']
+      try: rf=tbl_data[ks]['rf']
+      except: rf = 1
+      worksheet[ks_type].write(row[ks_type],column,ks,data_format)
+      worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
+      worksheet[ks_type].write(row[ks_type],column+2,float(t_size)/rf,num_format1)
+      row[ks_type]+=1
 
     total_row['size'] = row[ks_type]
     last_row = row[ks_type]
@@ -480,11 +545,13 @@ for cluster_url in data_url:
     row = {'app':3,'sys':3,'clu':3}
     column = 11
     for writes in write_count[ks_type]:
+      ks = writes['keyspace']
+      tbl = writes['table']
+      cnt = writes['count']
       perc_writes = float(write_subtotal[ks_type]) / float(total_writes[ks_type])
+      try: rf=tbl_data[ks]['rf']
+      except: rf=1
       if (perc_writes <= write_threshold):
-        ks = writes['keyspace']
-        tbl = writes['table']
-        cnt = writes['count']
         try:
           type(table_totals[ks])
         except:
@@ -498,7 +565,7 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column,ks,data_format)
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
         worksheet[ks_type].write(row[ks_type],column+2,cnt,num_format1)
-        worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['write']/len(tbl_data[ks][tbl]['field']),num_format2)
+        worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['write']/rf,num_format2)
         worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_writes[ks_type],perc_format)
         worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type]),perc_format)
         row[ks_type]+=1
@@ -554,7 +621,8 @@ for cluster_url in data_url:
     worksheet[ks_type].write(row+15,column+1,'=SUM(C4:C'+ str(total_row['size'])+')/1000000000',num_format3)
 
 
-    worksheet[ks_type].write_comment('G3',"The number of "+ks_type_abbr[ks_type]+" read requests on the coordinator nodes during the nodes uptime, analogous to client writes.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('C3',"A single set of data not to include the replication factor.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('G3',"The number of "+ks_type_abbr[ks_type]+" read requests during the nodes uptime, analogous to client writes.  This number assumes all reads are read consistancy Level (cl) is LOCAL_QUORUM",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
     worksheet[ks_type].write_comment('H3',"The "+ks_type_abbr[ks_type]+" table's read request count divided by the uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
     worksheet[ks_type].write_comment('I3',"The "+ks_type_abbr[ks_type]+" table's read pecentage of the total read requests in the cluster.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
     worksheet[ks_type].write_comment('J3',"The "+ks_type_abbr[ks_type]+" table's pecentage of read requests of the total RW requests (read and Write) in the cluster.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
@@ -564,5 +632,6 @@ for cluster_url in data_url:
     worksheet[ks_type].write_comment('Q3',"The "+ks_type_abbr[ks_type]+" table's pecentage of write requests of the total RW requests (read and Write) in the cluster.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
 
   workbook.close()
+  print('"' + cluster_name + '_' + 'workload' + '.xlsx"' + ' was created in "' + cluster_url) +'"'
 exit();
 
