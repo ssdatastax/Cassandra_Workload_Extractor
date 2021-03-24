@@ -445,6 +445,15 @@ for cluster_url in data_url:
       'num_format': '#,###',
       'valign': 'top'})
 
+  num_format4 = workbook.add_format({
+      'bold': True,
+      'text_wrap': False,
+      'font_size': 11,
+      'border': 6,
+      'border_color': '#998E5D',
+      'num_format': '#,###',
+      'valign': 'top'})
+
   total_format1 = workbook.add_format({
       'text_wrap': False,
       'font_size': 11,
@@ -465,8 +474,6 @@ for cluster_url in data_url:
       'text_wrap': False,
       'font_size': 11,
       'border': 1,
-      'font_color': 'white',
-      'bg_color': '#3980D3',
       'num_format': '[>999999999]0.00,,," GB/Sec";[>999999]0.00,," MB/Sec";0.000," KB/Sec"',
       'valign': 'top'})
 
@@ -474,8 +481,6 @@ for cluster_url in data_url:
       'text_wrap': False,
       'font_size': 11,
       'border': 1,
-      'font_color': 'white',
-      'bg_color': '#3980D3',
       'num_format': '[>999999999]0.00,,," GB/Mo";[>999999]0.00,," MB/Mo";0.000," KB/Mo"',
       'valign': 'top'})
 
@@ -618,51 +623,66 @@ for cluster_url in data_url:
 
     row=1
     column=18
+    worksheet[ks_type].write(row,column+2,'Copy/Paste',title_format)
     worksheet[ks_type].write(row+1,column,'Read Requests',header_format4)
-    worksheet[ks_type].write(row+1,column+1,'=SUM(G4:G'+ str(total_row['read'])+')',total_format2)
+    worksheet[ks_type].write(row+1,column+1,'=SUM(G4:G'+ str(total_row['read'])+')',total_format1)
     worksheet[ks_type].write(row+1,column+2,'=SUM(G4:G'+ str(total_row['read'])+')',num_format1)
-    worksheet[ks_type].write(row+2,column,'Avg Read TPS',header_format3)
+    worksheet[ks_type].write(row+2,column,'Avg Read TPS',header_format4)
     worksheet[ks_type].write(row+2,column+1,'=SUM(H4:H'+ str(total_row['read'])+')',tps_format)
-    worksheet[ks_type].write(row+2,column+2,'=SUM(H4:H'+ str(total_row['read'])+')',num_format1)
-    worksheet[ks_type].write(row+3,column,'Avg Read TPMO*',header_format3)
+    worksheet[ks_type].write(row+2,column+2,'=SUM(H4:H'+ str(total_row['read'])+')',num_format4)
+    worksheet[ks_type].write(row+3,column,'Avg Read TPMO',header_format4)
     worksheet[ks_type].write(row+3,column+1,'=T4*365.25/12',tpmo_format)
     worksheet[ks_type].write(row+3,column+2,'=T4*365.25/12',num_format1)
-    worksheet[ks_type].write(row+4,column,'Reads % RW',header_format3)
+    worksheet[ks_type].write(row+4,column,'Reads % RW',header_format4)
     worksheet[ks_type].write(row+4,column+1,'=T3/(T3+T7)',perc_format)
     worksheet[ks_type].write(row+5,column,'Write Requests',header_format4)
-    worksheet[ks_type].write(row+5,column+1,'=SUM(N4:N'+ str(total_row['write'])+')',total_format2)
+    worksheet[ks_type].write(row+5,column+1,'=SUM(N4:N'+ str(total_row['write'])+')',total_format1)
     worksheet[ks_type].write(row+5,column+2,'=SUM(N4:N'+ str(total_row['write'])+')',num_format1)
-    worksheet[ks_type].write(row+6,column,'Avg Write TPS',header_format3)
+    worksheet[ks_type].write(row+6,column,'Avg Write TPS',header_format4)
     worksheet[ks_type].write(row+6,column+1,'=SUM(O4:O'+ str(total_row['write'])+')',tps_format)
-    worksheet[ks_type].write(row+6,column+2,'=SUM(O4:O'+ str(total_row['write'])+')',num_format1)
-    worksheet[ks_type].write(row+7,column,'Avg Write TPMO*',header_format3)
+    worksheet[ks_type].write(row+6,column+2,'=SUM(O4:O'+ str(total_row['write'])+')',num_format4)
+    worksheet[ks_type].write(row+7,column,'Avg Write TPMO',header_format4)
     worksheet[ks_type].write(row+7,column+1,'=T8*365.25/12',tpmo_format)
     worksheet[ks_type].write(row+7,column+2,'=T8*365.25/12',num_format1)
-    worksheet[ks_type].write(row+8,column,'Writes % RW',header_format3)
+    worksheet[ks_type].write(row+8,column,'Writes % RW',header_format4)
     worksheet[ks_type].write(row+8,column+1,'=T7/(T3+T7)',perc_format)
-    worksheet[ks_type].write(row+9,column,'Total RW (Reads+Writes)',header_format4)
-    worksheet[ks_type].write(row+9,column+1,'=T3+T7',total_format2)
-    worksheet[ks_type].write(row+9,column+2,'=T3+T7',num_format2)
-    worksheet[ks_type].write(row+10,column,'Total Avg TPS',header_format3)
+    worksheet[ks_type].write(row+9,column,'Total RW',header_format4)
+    worksheet[ks_type].write(row+9,column+1,'=T3+T7',total_format1)
+    worksheet[ks_type].write(row+9,column+2,'=T3+T7',num_format1)
+    worksheet[ks_type].write(row+10,column,'Total Avg TPS',header_format4)
     worksheet[ks_type].write(row+10,column+1,'=T4+T8',tps_format)
     worksheet[ks_type].write(row+10,column+2,'=T4+T8',num_format1)
-    worksheet[ks_type].write(row+11,column,'Total Avg TPMO*',header_format3)
+    worksheet[ks_type].write(row+11,column,'Total Avg TPMO',header_format4)
     worksheet[ks_type].write(row+11,column+1,'=T5+T9',tpmo_format)
     worksheet[ks_type].write(row+11,column+2,'=T5+T9',num_format1)
     worksheet[ks_type].write(row+12,column,ks_type_abbr[ks_type] + ' Data Size',header_format4)
-    worksheet[ks_type].write(row+12,column+1,'=SUM(C4:C'+ str(total_row['size'])+')',total_format2)
-    worksheet[ks_type].write(row+12,column+2,'=SUM(C4:C'+ str(total_row['size'])+')',num_format1)
+    worksheet[ks_type].write(row+12,column+1,'=SUM(C4:C'+ str(total_row['size'])+')',total_format1)
+    worksheet[ks_type].write(row+12,column+2,'=SUM(C4:C'+ str(total_row['size'])+')'+'/1000000000',num_format4)
+    worksheet[ks_type].write(row+12,column+3,' in GB',num_format1)
 
 
     worksheet[ks_type].write_comment('C3',"A single set of data not to include the replication factor.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
-    worksheet[ks_type].write_comment('G3',"The number of "+ks_type_abbr[ks_type]+" read requests during the nodes uptime, analogous to client writes.  This number assumes all reads are read consistancy Level (cl) is LOCAL_QUORUM",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
-    worksheet[ks_type].write_comment('H3',"The "+ks_type_abbr[ks_type]+" table's read request count divided by the uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
-    worksheet[ks_type].write_comment('I3',"The "+ks_type_abbr[ks_type]+" table's read pecentage of the total read requests in the cluster.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
-    worksheet[ks_type].write_comment('J3',"The "+ks_type_abbr[ks_type]+" table's pecentage of read requests of the total RW requests (read and Write) in the cluster.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
-    worksheet[ks_type].write_comment('N3',"The number of "+ks_type_abbr[ks_type]+" read requests on the coordinator nodes during the nodes uptime, analogous to client writes.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
-    worksheet[ks_type].write_comment('O3',"The "+ks_type_abbr[ks_type]+" table's write request count divided by the uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
-    worksheet[ks_type].write_comment('P3',"The "+ks_type_abbr[ks_type]+" table's write pecentage of the total write requests in the cluster.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
-    worksheet[ks_type].write_comment('Q3',"The "+ks_type_abbr[ks_type]+" table's pecentage of write requests of the total RW requests (read and Write) in the cluster.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('G3',"The "+ks_type_abbr[ks_type]+" table's total read requests based on a read consistancy level (CL) of LOCAL QUORUM and the local DC's replication factor (RF) of 3. If the read CL is set to LOCAL ONE, then the actual value will be up to 2X this number.  The time is determined by the node's uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('H3',"The "+ks_type_abbr[ks_type]+" table's read request per second based on a read consistancy level (CL) of LOCAL QUORUM and the local DC's replication factor (RF) of 3. If the read CL is set to LOCAL ONE, then the actual value will be up to 2X this number.  The time is determined by the node's uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('I3',"The "+ks_type_abbr[ks_type]+" table's read pecentage of the total read requests in the cluster. (See comment in Total Read Req)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('J3',"The "+ks_type_abbr[ks_type]+" table's pecentage of read requests of the total RW requests (read and Write) in the cluster. (See comment in Total Read Req)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('N3',"The number of "+ks_type_abbr[ks_type]+" table's write requests on the coordinator nodes during the nodes uptime, analogous to client writes.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('O3',"The "+ks_type_abbr[ks_type]+" table's write request per second.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('P3',"The "+ks_type_abbr[ks_type]+" table's write pecentage of the total write requests in the cluster. (See comment in Total Read Req)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('Q3',"The "+ks_type_abbr[ks_type]+" table's pecentage of write requests of the total RW requests (read and Write) in the cluster. (See comment in Total Read Req)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S3',"The "+ks_type_abbr[ks_type]+"'s total read requests based on a read consistancy level (CL) of LOCAL QUORUM and the local DC's replication factor (RF) of 3. If the read CL is set to LOCAL ONE, then the actual value will be up to 2X this number.  The time is determined by the node's uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S4',"The "+ks_type_abbr[ks_type]+"'s read request per second based on a read consistancy level (CL) of LOCAL QUORUM and the local DC's replication factor (RF) of 3. If the read CL is set to LOCAL ONE, then the actual value will be up to 2X this number.  The time is determined by the node's uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S5',"The "+ks_type_abbr[ks_type]+"'s read request per month based on a read consistancy level (CL) of LOCAL QUORUM and the local DC's replication factor (RF) of 3. If the read CL is set to LOCAL ONE, then the actual value will be up to 2X this number.  The time is determined by the node's uptime. Month is calcualted as 365.25/12 days.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S6',"The "+ks_type_abbr[ks_type]+"'s pecentage of read requests of the total RW requests (read and Write) in the cluster. (See comment in Read Requests)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S7',"The number of "+ks_type_abbr[ks_type]+"'s write requests on the coordinator nodes during the nodes uptime, analogous to client writes.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S8',"The "+ks_type_abbr[ks_type]+"'s write request per second.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S9',"The "+ks_type_abbr[ks_type]+"'s write request per month. Month is calcualted as 365.25/12 days.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S10',"The "+ks_type_abbr[ks_type]+"'s pecentage of the total write requests of the total RW requests (read and Write) in the cluster. (See comment in Read Requests)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S11',"The number of "+ks_type_abbr[ks_type]+"'s  read and write requests during the nodes uptime. (See comment in Read Requests)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S12',"The "+ks_type_abbr[ks_type]+"'s total transactions per second. (See comment in Read Requests)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S13',"The "+ks_type_abbr[ks_type]+"'s total transactions per month. Month is calcualted as 365.25/12 days. (See comment in Read Requests)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S14',"A "+ks_type_abbr[ks_type]+" total data set  size not to include the replication factor.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+
 
   workbook.close()
   print('"' + cluster_name + '_' + 'workload' + '.xlsx"' + ' was created in "' + cluster_url) +'"'
