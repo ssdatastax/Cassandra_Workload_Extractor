@@ -237,11 +237,6 @@ for cluster_url in data_url:
           except:
             print("Error1:" + ks + "." + tbl + " - " + line)
 
-
-
-
-
-
       iodata = {}
       iodata[node] = {}
       keyspace = ""
@@ -287,7 +282,7 @@ for cluster_url in data_url:
           type(table_tps[ks][tbl])
         except:
           table_tps[ks][tbl]={}
-        if (tbl and "Space used (live): " in line):
+        if (tbl and "Space used (live): " in line or "Memtable data size: " in line):
           tsize = int(line.split(":")[1].strip())
           if (tsize > 0):
             total_size[ks_type] += tsize
@@ -450,6 +445,22 @@ for cluster_url in data_url:
       'num_format': '#,###',
       'valign': 'top'})
 
+  total_format1 = workbook.add_format({
+      'text_wrap': False,
+      'font_size': 11,
+      'border': 1,
+      'num_format': '[>999999999]0.000,,," GB";[>999999]0.000,," MB";0.000," KB"',
+      'valign': 'top'})
+
+  total_format2 = workbook.add_format({
+      'text_wrap': False,
+      'font_size': 11,
+      'border': 1,
+      'font_color': 'white',
+      'bg_color': '#3980D3',
+      'num_format': '[>999999999]0.000,,," GB";[>999999]0.000,," MB";0.000," KB"',
+      'valign': 'top'})
+
   title_format = workbook.add_format({
       'bold': 1,
       'font_size': 13,
@@ -495,7 +506,7 @@ for cluster_url in data_url:
 
   last_row = 0
   total_row = {'size':0,'read_tps':0,'write_tps':0}
-
+  rf=0
 
   for ks_type in ks_type_array:
     row = {'app':3,'sys':3,'clu':3}
@@ -509,7 +520,7 @@ for cluster_url in data_url:
       except: rf = 1
       worksheet[ks_type].write(row[ks_type],column,ks,data_format)
       worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
-      worksheet[ks_type].write(row[ks_type],column+2,float(t_size)/rf,num_format1)
+      worksheet[ks_type].write(row[ks_type],column+2,float(t_size)/rf,total_format1)
       row[ks_type]+=1
 
     total_row['size'] = row[ks_type]
@@ -590,35 +601,35 @@ for cluster_url in data_url:
     row=1
     column=18
     worksheet[ks_type].write(row+1,column,'Read Requests',header_format4)
-    worksheet[ks_type].write(row+1,column+1,'=SUM(G4:G'+ str(total_row['read'])+')',num_format3)
+    worksheet[ks_type].write(row+1,column+1,'=SUM(G4:G'+ str(total_row['read'])+')',total_format2)
     worksheet[ks_type].write(row+2,column,'Avg Read TPS',header_format3)
-    worksheet[ks_type].write(row+2,column+1,'=SUM(H4:H'+ str(total_row['read'])+')',num_format1)
-    worksheet[ks_type].write(row+3,column,'Avg Read TPD (K)',header_format3)
-    worksheet[ks_type].write(row+3,column+1,'=T4*60*60*24/1000',num_format1)
-    worksheet[ks_type].write(row+4,column,'Avg Read TPMO* (M)',header_format3)
-    worksheet[ks_type].write(row+4,column+1,'=T5*365.25/12/1000',num_format1)
+    worksheet[ks_type].write(row+2,column+1,'=SUM(H4:H'+ str(total_row['read'])+')',total_format1)
+    worksheet[ks_type].write(row+3,column,'Avg Read TPD',header_format3)
+    worksheet[ks_type].write(row+3,column+1,'=T4*60*60*24',total_format1)
+    worksheet[ks_type].write(row+4,column,'Avg Read TPMO*',header_format3)
+    worksheet[ks_type].write(row+4,column+1,'=T5*365.25/12',total_format1)
     worksheet[ks_type].write(row+5,column,'Reads % RW',header_format3)
     worksheet[ks_type].write(row+5,column+1,'=T3/(T3+T8)',perc_format)
     worksheet[ks_type].write(row+6,column,'Write Requests',header_format4)
-    worksheet[ks_type].write(row+6,column+1,'=SUM(N4:N'+ str(total_row['write'])+')',num_format3)
+    worksheet[ks_type].write(row+6,column+1,'=SUM(N4:N'+ str(total_row['write'])+')',total_format2)
     worksheet[ks_type].write(row+7,column,'Avg Write TPS',header_format3)
-    worksheet[ks_type].write(row+7,column+1,'=SUM(O4:O'+ str(total_row['write'])+')',num_format1)
-    worksheet[ks_type].write(row+8,column,'Avg Write TPD (K)',header_format3)
-    worksheet[ks_type].write(row+8,column+1,'=T9*60*60*24/1000',num_format1)
-    worksheet[ks_type].write(row+9,column,'Avg Write TPMO* (M)',header_format3)
-    worksheet[ks_type].write(row+9,column+1,'=T10*365.25/12/1000',num_format1)
+    worksheet[ks_type].write(row+7,column+1,'=SUM(O4:O'+ str(total_row['write'])+')',total_format1)
+    worksheet[ks_type].write(row+8,column,'Avg Write TPD',header_format3)
+    worksheet[ks_type].write(row+8,column+1,'=T9*60*60*24',total_format1)
+    worksheet[ks_type].write(row+9,column,'Avg Write TPMO*',header_format3)
+    worksheet[ks_type].write(row+9,column+1,'=T10*365.25/12',total_format1)
     worksheet[ks_type].write(row+10,column,'Writes % RW',header_format3)
     worksheet[ks_type].write(row+10,column+1,'=T8/(T3+T8)',perc_format)
     worksheet[ks_type].write(row+11,column,'Total RW (Reads+Writes)',header_format4)
-    worksheet[ks_type].write(row+11,column+1,'=T3+T8',num_format3)
+    worksheet[ks_type].write(row+11,column+1,'=T3+T8',total_format2)
     worksheet[ks_type].write(row+12,column,'Total Avg TPS',header_format3)
-    worksheet[ks_type].write(row+12,column+1,'=T4+T9',num_format1)
-    worksheet[ks_type].write(row+13,column,'Total Avg TPD (K)',header_format3)
-    worksheet[ks_type].write(row+13,column+1,'=T5+T10',num_format1)
-    worksheet[ks_type].write(row+14,column,'Total Avg TPMO* (M)',header_format3)
-    worksheet[ks_type].write(row+14,column+1,'=T6+T11',num_format1)
-    worksheet[ks_type].write(row+15,column,ks_type_abbr[ks_type] + ' Data Size (GB)',header_format4)
-    worksheet[ks_type].write(row+15,column+1,'=SUM(C4:C'+ str(total_row['size'])+')/1000000000',num_format3)
+    worksheet[ks_type].write(row+12,column+1,'=T4+T9',total_format1)
+    worksheet[ks_type].write(row+13,column,'Total Avg TPD',header_format3)
+    worksheet[ks_type].write(row+13,column+1,'=T5+T10',total_format1)
+    worksheet[ks_type].write(row+14,column,'Total Avg TPMO*',header_format3)
+    worksheet[ks_type].write(row+14,column+1,'=T6+T11',total_format1)
+    worksheet[ks_type].write(row+15,column,ks_type_abbr[ks_type] + ' Data Size',header_format4)
+    worksheet[ks_type].write(row+15,column+1,'=SUM(C4:C'+ str(total_row['size'])+')',total_format2)
 
 
     worksheet[ks_type].write_comment('C3',"A single set of data not to include the replication factor.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
