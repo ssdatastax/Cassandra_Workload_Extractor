@@ -79,8 +79,8 @@ def rwTag(writeFile,rwCQL,ks,tbl,tbl_info,ratio='n'):
 
 data_url = []
 system_keyspace = ['OpsCenter','dse_insights_local','solr_admin','test','dse_system','dse_analytics','system_auth','system_traces','system','dse_system_local','system_distributed','system_schema','dse_perf','dse_insights','dse_security','killrvideo','dse_leases','dsefs_c4z','HiveMetaStore','dse_analytics','dsefs']
-headers=["Keyspace","Table","Table Size","","Keyspace","Table","Total Read Req","Average TPS","% Reads","% RW","","Keyspace","Table","Total Write Req","Average TPS","% Writes","% RW","","TOTALS"]
-headers_width=[14,25,17,3,14,25,17,13,9,9,3,14,25,17,13,9,9,3,25,20]
+headers=["Keyspace","Table","Table Size","","Keyspace","Table","Total Read Req","Average TPS","% Reads","% RW","","Keyspace","Table","Total Write Req","Average TPS","% Writes","% RW","","TOTALS","Copy/Paste"]
+headers_width=[14,25,17,3,14,25,17,13,9,9,3,14,25,17,13,9,9,3,25,15,20]
 ks_type_abbr = {'app':'Application','sys':'System','clu':'Cluster'}
 read_threshold = 1
 write_threshold = 1
@@ -449,7 +449,7 @@ for cluster_url in data_url:
       'text_wrap': False,
       'font_size': 11,
       'border': 1,
-      'num_format': '[>999999999]0.000,,," GB";[>999999]0.000,," MB";0.000," KB"',
+      'num_format': '[>999999999]0.00,,," GB";[>999999]0.00,," MB";0.000," KB"',
       'valign': 'top'})
 
   total_format2 = workbook.add_format({
@@ -458,7 +458,25 @@ for cluster_url in data_url:
       'border': 1,
       'font_color': 'white',
       'bg_color': '#3980D3',
-      'num_format': '[>999999999]0.000,,," GB";[>999999]0.000,," MB";0.000," KB"',
+      'num_format': '[>999999999]0.00,,," GB";[>999999]0.00,," MB";0.000," KB"',
+      'valign': 'top'})
+
+  tps_format = workbook.add_format({
+      'text_wrap': False,
+      'font_size': 11,
+      'border': 1,
+      'font_color': 'white',
+      'bg_color': '#3980D3',
+      'num_format': '[>999999999]0.00,,," GB/Sec";[>999999]0.00,," MB/Sec";0.000," KB/Sec"',
+      'valign': 'top'})
+
+  tpmo_format = workbook.add_format({
+      'text_wrap': False,
+      'font_size': 11,
+      'border': 1,
+      'font_color': 'white',
+      'bg_color': '#3980D3',
+      'num_format': '[>999999999]0.00,,," GB/Mo";[>999999]0.00,," MB/Mo";0.000," KB/Mo"',
       'valign': 'top'})
 
   title_format = workbook.add_format({
@@ -489,7 +507,7 @@ for cluster_url in data_url:
       'bg_color': '#3A3A42'})
 
   for ks_type in ks_type_array:
-    worksheet[ks_type].merge_range('A1:T1', ks_type_abbr[ks_type] + ' Workload for ' + cluster_name, title_format3)
+    worksheet[ks_type].merge_range('A1:U1', ks_type_abbr[ks_type] + ' Workload for ' + cluster_name, title_format3)
     worksheet[ks_type].merge_range('A2:C2', 'Table Size', title_format)
     worksheet[ks_type].merge_range('E2:J2', 'Read Requests', title_format)
     worksheet[ks_type].merge_range('L2:Q2', 'Write Requests', title_format)
@@ -602,34 +620,38 @@ for cluster_url in data_url:
     column=18
     worksheet[ks_type].write(row+1,column,'Read Requests',header_format4)
     worksheet[ks_type].write(row+1,column+1,'=SUM(G4:G'+ str(total_row['read'])+')',total_format2)
+    worksheet[ks_type].write(row+1,column+2,'=SUM(G4:G'+ str(total_row['read'])+')',num_format1)
     worksheet[ks_type].write(row+2,column,'Avg Read TPS',header_format3)
-    worksheet[ks_type].write(row+2,column+1,'=SUM(H4:H'+ str(total_row['read'])+')',total_format1)
-    worksheet[ks_type].write(row+3,column,'Avg Read TPD',header_format3)
-    worksheet[ks_type].write(row+3,column+1,'=T4*60*60*24',total_format1)
-    worksheet[ks_type].write(row+4,column,'Avg Read TPMO*',header_format3)
-    worksheet[ks_type].write(row+4,column+1,'=T5*365.25/12',total_format1)
-    worksheet[ks_type].write(row+5,column,'Reads % RW',header_format3)
-    worksheet[ks_type].write(row+5,column+1,'=T3/(T3+T8)',perc_format)
-    worksheet[ks_type].write(row+6,column,'Write Requests',header_format4)
-    worksheet[ks_type].write(row+6,column+1,'=SUM(N4:N'+ str(total_row['write'])+')',total_format2)
-    worksheet[ks_type].write(row+7,column,'Avg Write TPS',header_format3)
-    worksheet[ks_type].write(row+7,column+1,'=SUM(O4:O'+ str(total_row['write'])+')',total_format1)
-    worksheet[ks_type].write(row+8,column,'Avg Write TPD',header_format3)
-    worksheet[ks_type].write(row+8,column+1,'=T9*60*60*24',total_format1)
-    worksheet[ks_type].write(row+9,column,'Avg Write TPMO*',header_format3)
-    worksheet[ks_type].write(row+9,column+1,'=T10*365.25/12',total_format1)
-    worksheet[ks_type].write(row+10,column,'Writes % RW',header_format3)
-    worksheet[ks_type].write(row+10,column+1,'=T8/(T3+T8)',perc_format)
-    worksheet[ks_type].write(row+11,column,'Total RW (Reads+Writes)',header_format4)
-    worksheet[ks_type].write(row+11,column+1,'=T3+T8',total_format2)
-    worksheet[ks_type].write(row+12,column,'Total Avg TPS',header_format3)
-    worksheet[ks_type].write(row+12,column+1,'=T4+T9',total_format1)
-    worksheet[ks_type].write(row+13,column,'Total Avg TPD',header_format3)
-    worksheet[ks_type].write(row+13,column+1,'=T5+T10',total_format1)
-    worksheet[ks_type].write(row+14,column,'Total Avg TPMO*',header_format3)
-    worksheet[ks_type].write(row+14,column+1,'=T6+T11',total_format1)
-    worksheet[ks_type].write(row+15,column,ks_type_abbr[ks_type] + ' Data Size',header_format4)
-    worksheet[ks_type].write(row+15,column+1,'=SUM(C4:C'+ str(total_row['size'])+')',total_format2)
+    worksheet[ks_type].write(row+2,column+1,'=SUM(H4:H'+ str(total_row['read'])+')',tps_format)
+    worksheet[ks_type].write(row+2,column+2,'=SUM(H4:H'+ str(total_row['read'])+')',num_format1)
+    worksheet[ks_type].write(row+3,column,'Avg Read TPMO*',header_format3)
+    worksheet[ks_type].write(row+3,column+1,'=T4*365.25/12',tpmo_format)
+    worksheet[ks_type].write(row+3,column+2,'=T4*365.25/12',num_format1)
+    worksheet[ks_type].write(row+4,column,'Reads % RW',header_format3)
+    worksheet[ks_type].write(row+4,column+1,'=T3/(T3+T7)',perc_format)
+    worksheet[ks_type].write(row+5,column,'Write Requests',header_format4)
+    worksheet[ks_type].write(row+5,column+1,'=SUM(N4:N'+ str(total_row['write'])+')',total_format2)
+    worksheet[ks_type].write(row+5,column+2,'=SUM(N4:N'+ str(total_row['write'])+')',num_format1)
+    worksheet[ks_type].write(row+6,column,'Avg Write TPS',header_format3)
+    worksheet[ks_type].write(row+6,column+1,'=SUM(O4:O'+ str(total_row['write'])+')',tps_format)
+    worksheet[ks_type].write(row+6,column+2,'=SUM(O4:O'+ str(total_row['write'])+')',num_format1)
+    worksheet[ks_type].write(row+7,column,'Avg Write TPMO*',header_format3)
+    worksheet[ks_type].write(row+7,column+1,'=T8*365.25/12',tpmo_format)
+    worksheet[ks_type].write(row+7,column+2,'=T8*365.25/12',num_format1)
+    worksheet[ks_type].write(row+8,column,'Writes % RW',header_format3)
+    worksheet[ks_type].write(row+8,column+1,'=T7/(T3+T7)',perc_format)
+    worksheet[ks_type].write(row+9,column,'Total RW (Reads+Writes)',header_format4)
+    worksheet[ks_type].write(row+9,column+1,'=T3+T7',total_format2)
+    worksheet[ks_type].write(row+9,column+2,'=T3+T7',num_format2)
+    worksheet[ks_type].write(row+10,column,'Total Avg TPS',header_format3)
+    worksheet[ks_type].write(row+10,column+1,'=T4+T8',tps_format)
+    worksheet[ks_type].write(row+10,column+2,'=T4+T8',num_format1)
+    worksheet[ks_type].write(row+11,column,'Total Avg TPMO*',header_format3)
+    worksheet[ks_type].write(row+11,column+1,'=T5+T9',tpmo_format)
+    worksheet[ks_type].write(row+11,column+2,'=T5+T9',num_format1)
+    worksheet[ks_type].write(row+12,column,ks_type_abbr[ks_type] + ' Data Size',header_format4)
+    worksheet[ks_type].write(row+12,column+1,'=SUM(C4:C'+ str(total_row['size'])+')',total_format2)
+    worksheet[ks_type].write(row+12,column+2,'=SUM(C4:C'+ str(total_row['size'])+')',num_format1)
 
 
     worksheet[ks_type].write_comment('C3',"A single set of data not to include the replication factor.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
