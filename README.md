@@ -22,7 +22,7 @@ This code was created to assist in identifying average tps numbers.  For so long
 <!-- GETTING STARTED -->
 ## Getting Started
 
-Install xlsxwriter and Pandas
+Install XlsxWriter and Pandas
 
 After cloning this project, download a diagnostic tarball from a targeted Cassandra cluster through DSE OpsCenter or using the Cassandra Diagnostic Collection Tool - https://github.com/datastax-toolkit/diagnostic-collection. 
 
