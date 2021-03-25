@@ -595,7 +595,14 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
         worksheet[ks_type].write(row[ks_type],column+2,cnt,total_format3)
         try:
-          worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['read']/2,tps_format)
+          if tbl_data[ks]['rf']>1:
+            div_by=2
+          else:
+            div_by=1
+        except:
+          div_by=1
+        try:
+          worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['read']/div_by,tps_format)
         except:
           worksheet[ks_type].write(row[ks_type],column+3,0,tps_format)
         worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_reads[ks_type],perc_format)
