@@ -487,6 +487,22 @@ for cluster_url in data_url:
       'num_format': '[>999999]#,##0.00,," MB";[>999]0.00," KB";0',
       'valign': 'top'})
 
+  total_format3 = workbook.add_format({
+      'text_wrap': False,
+      'font_size': 11,
+      'border': 1,
+      'num_format': '[>999999]#,##0.00,," M";[>999]0.00," K";0',
+      'valign': 'top'})
+
+  total_format4 = workbook.add_format({
+      'text_wrap': False,
+      'font_size': 11,
+      'border': 1,
+      'font_color': 'white',
+      'bg_color': '#3980D3',
+      'num_format': '[>999999]#,##0.00,," M";[>999]0.00," K";0',
+      'valign': 'top'})
+
   tps_format = workbook.add_format({
       'text_wrap': False,
       'font_size': 11,
@@ -577,7 +593,7 @@ for cluster_url in data_url:
         read_subtotal[ks_type] += cnt
         worksheet[ks_type].write(row[ks_type],column,ks,data_format)
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
-        worksheet[ks_type].write(row[ks_type],column+2,cnt,total_format1)
+        worksheet[ks_type].write(row[ks_type],column+2,cnt,total_format3)
         try:
           worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['read']/2,tps_format)
         except:
@@ -601,7 +617,7 @@ for cluster_url in data_url:
       if (perc_writes <= write_threshold):
         worksheet[ks_type].write(row[ks_type],column,ks,data_format)
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
-        worksheet[ks_type].write(row[ks_type],column+2,cnt,total_format1)
+        worksheet[ks_type].write(row[ks_type],column+2,cnt,total_format3)
         try:
           worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['write']/rf,tps_format)
         except:
@@ -616,7 +632,7 @@ for cluster_url in data_url:
     column=18
     worksheet[ks_type].write(row,column+2,'Copy/Paste',title_format)
     worksheet[ks_type].write(row+1,column,'Read Requests',header_format4)
-    worksheet[ks_type].write(row+1,column+1,'=SUM(G4:G'+ str(total_row['read'])+')',total_format1)
+    worksheet[ks_type].write(row+1,column+1,'=SUM(G4:G'+ str(total_row['read'])+')',total_format3)
     worksheet[ks_type].write(row+1,column+2,'=SUM(G4:G'+ str(total_row['read'])+')',num_format1)
     worksheet[ks_type].write(row+2,column,'Avg Read TPS',header_format4)
     worksheet[ks_type].write(row+2,column+1,'=SUM(H4:H'+ str(total_row['read'])+')',tps_format)
@@ -630,7 +646,7 @@ for cluster_url in data_url:
     total_format1.set_top(2)
     num_format1.set_top(2)
     worksheet[ks_type].write(row+5,column,'Write Requests',header_format4)
-    worksheet[ks_type].write(row+5,column+1,'=SUM(N4:N'+ str(total_row['write'])+')',total_format1)
+    worksheet[ks_type].write(row+5,column+1,'=SUM(N4:N'+ str(total_row['write'])+')',total_format3)
     worksheet[ks_type].write(row+5,column+2,'=SUM(N4:N'+ str(total_row['write'])+')',num_format1)
     header_format4.set_top(1)
     total_format1.set_top(1)
@@ -647,7 +663,7 @@ for cluster_url in data_url:
     total_format1.set_top(2)
     num_format1.set_top(2)
     worksheet[ks_type].write(row+9,column,'Total RW',header_format4)
-    worksheet[ks_type].write(row+9,column+1,'=T3+T7',total_format1)
+    worksheet[ks_type].write(row+9,column+1,'=T3+T7',total_format3)
     worksheet[ks_type].write(row+9,column+2,'=T3+T7',num_format1)
     header_format4.set_top(1)
     total_format1.set_top(1)
