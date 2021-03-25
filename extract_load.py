@@ -152,6 +152,7 @@ for cluster_url in data_url:
   node_uptime = {}
   dc_array = []
   node_dc = {}
+  table_array = {}
 
   rootPath = cluster_url + "/nodes/"
   for node in os.listdir(rootPath):
@@ -263,6 +264,7 @@ for cluster_url in data_url:
         if (line==""): tbl = "";
         if("Keyspace" in line):
           ks = line.split(":")[1].strip()
+          table_array[ks]=[]
         if include_system==1:
           if ks not in system_keyspace and ks != '': ks_type='app'
           else: ks_type='sys'
@@ -275,14 +277,16 @@ for cluster_url in data_url:
         if("Table: " in line):
           tbl = line.split(":")[1].strip()
           is_index = 0
+          table_array[ks].append(tbl)
         elif("Table (index): " in line):
           tbl = line.split(":")[1].strip()
           is_index = 1
+          table_array[ks].append(tbl)
         try:
           type(table_tps[ks][tbl])
         except:
           table_tps[ks][tbl]={}
-        if (tbl and "Space used (live): " in line or "Memtable data size: " in line):
+        if (tbl and "Space used (live):" in line or "Memtable data size:" in line):
           tsize = int(line.split(":")[1].strip())
           if (tsize > 0):
             total_size[ks_type] += tsize
@@ -330,30 +334,43 @@ for cluster_url in data_url:
                 write_table[ks][tbl] += count
               except:
                 write_table[ks][tbl] = count
-    
-  for ks,sizetable in size_table.items():
+  for ks,tbl_array in table_array.items():
+#      print(ks+'.'+str(tbl))
+#  for ks,sizetable in size_table.items():
     if include_system==1:
       if ks not in system_keyspace and ks != '': ks_type='app'
       else: ks_type='sys'
     else: ks_type='clu'
-    for tablename,tblsize in sizetable.items():
-      table_count[ks_type].append({'keyspace':ks,'table':tablename,'count':tblsize})
-
-  for ks,readtable in read_table.items():
+    for tbl in tbl_array:
+#    for tbl,tblsize in sizetable.items():
+      try:
+        table_count[ks_type].append({'keyspace':ks,'table':tbl,'count':size_table[ks][tbl]})
+      except:
+        table_count[ks_type].append({'keyspace':ks,'table':tbl,'count':0})
+  for ks,tbl_array in table_array.items():
+#  for ks,readtable in read_table.items():
     if include_system==1:
       if ks not in system_keyspace and ks != '': ks_type='app'
       else: ks_type='sys'
     else: ks_type='clu'
-    for tablename,tablecount in readtable.items():
-      read_count[ks_type].append({'keyspace':ks,'table':tablename,'count':tablecount})
-
-  for ks,writetable in write_table.items():
+    for tbl in tbl_array:
+ #   for tbl,tablecount in readtable.items():
+      try:
+        read_count[ks_type].append({'keyspace':ks,'table':tbl,'count':read_table[ks][tbl]})
+      except:
+        read_count[ks_type].append({'keyspace':ks,'table':tbl,'count':0})
+  for ks,tbl_array in table_array.items():
+#  for ks,writetable in write_table.items():
     if include_system==1:
       if ks not in system_keyspace and ks != '': ks_type='app'
       else: ks_type='sys'
     else: ks_type='clu'
-    for tablename,tablecount in writetable.items():
-      write_count[ks_type].append({'keyspace':ks,'table':tablename,'count':tablecount})
+    for tbl in tbl_array:
+#    for tbl,tablecount in writetable.items():
+      try:
+        write_count[ks_type].append({'keyspace':ks,'table':tbl,'count':write_table[ks][tbl]})
+      except:
+        write_count[ks_type].append({'keyspace':ks,'table':tbl,'count':0})
 
   for ks_type in ks_type_array:
     read_count[ks_type].sort(reverse=True,key=sortFunc)
@@ -458,7 +475,7 @@ for cluster_url in data_url:
       'text_wrap': False,
       'font_size': 11,
       'border': 1,
-      'num_format': '[>999999999]0.00,,," GB";[>999999]0.00,," MB";0.000," KB"',
+      'num_format': '[>999999]#,##0.00,," MB";[>999]0.00," KB";0',
       'valign': 'top'})
 
   total_format2 = workbook.add_format({
@@ -467,21 +484,21 @@ for cluster_url in data_url:
       'border': 1,
       'font_color': 'white',
       'bg_color': '#3980D3',
-      'num_format': '[>999999999]0.00,,," GB";[>999999]0.00,," MB";0.000," KB"',
+      'num_format': '[>999999]#,##0.00,," MB";[>999]0.00," KB";0',
       'valign': 'top'})
 
   tps_format = workbook.add_format({
       'text_wrap': False,
       'font_size': 11,
       'border': 1,
-      'num_format': '[>999999999]0.00,,," GB/Sec";[>999999]0.00,," MB/Sec";0.000," KB/Sec"',
+      'num_format': '[>999999]#,##0.00,," (M)TPS";[>999]0.00," (K)TPS";0" TPS"',
       'valign': 'top'})
 
   tpmo_format = workbook.add_format({
       'text_wrap': False,
       'font_size': 11,
       'border': 1,
-      'num_format': '[>999999999]0.00,,," GB/Mo";[>999999]0.00,," MB/Mo";0.000," KB/Mo"',
+      'num_format': '[>999999]#,##0.00,," (M)TPMo";[>999]0.00," (K)TPMo";0" TPMo"',
       'valign': 'top'})
 
   title_format = workbook.add_format({
@@ -547,7 +564,6 @@ for cluster_url in data_url:
       row[ks_type]+=1
 
     total_row['size'] = row[ks_type]
-    last_row = row[ks_type]
 
     row = {'app':3,'sys':3,'clu':3}
     perc_reads = 0.0
@@ -558,22 +574,19 @@ for cluster_url in data_url:
         ks = reads['keyspace']
         tbl = reads['table']
         cnt = reads['count']
-        try:
-          type(table_totals[ks])
-        except:
-          table_totals[ks] = {}
-        table_totals[ks][tbl] = {'reads':cnt,'writes':'n/a'}
         read_subtotal[ks_type] += cnt
         worksheet[ks_type].write(row[ks_type],column,ks,data_format)
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
-        worksheet[ks_type].write(row[ks_type],column+2,cnt,num_format1)
-        worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['read']/2,num_format2)
+        worksheet[ks_type].write(row[ks_type],column+2,cnt,total_format1)
+        try:
+          worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['read']/2,tps_format)
+        except:
+          worksheet[ks_type].write(row[ks_type],column+3,0,tps_format)
         worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_reads[ks_type],perc_format)
         worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type]),perc_format)
         row[ks_type]+=1
   
     total_row['read'] = row[ks_type]
-    if (last_row<row[ks_type]): last_row=row[ks_type]
 
     perc_writes = 0.0
     row = {'app':3,'sys':3,'clu':3}
@@ -586,40 +599,18 @@ for cluster_url in data_url:
       try: rf=tbl_data[ks]['rf']
       except: rf=1
       if (perc_writes <= write_threshold):
-        try:
-          type(table_totals[ks])
-        except:
-          table_totals[ks] = {}
-        try:
-          type(table_totals[ks][tbl])
-          table_totals[ks][tbl] = {'reads':table_totals[ks][tbl]['reads'],'writes':cnt}
-        except:
-          table_totals[ks][tbl] = {'reads':'n/a','writes':cnt}
-        write_subtotal[ks_type] += cnt
         worksheet[ks_type].write(row[ks_type],column,ks,data_format)
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
-        worksheet[ks_type].write(row[ks_type],column+2,cnt,num_format1)
-        worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['write']/rf,num_format2)
+        worksheet[ks_type].write(row[ks_type],column+2,cnt,total_format1)
+        try:
+          worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['write']/rf,tps_format)
+        except:
+          worksheet[ks_type].write(row[ks_type],column+3,0,tps_format)
         worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_writes[ks_type],perc_format)
         worksheet[ks_type].write(row[ks_type],column+5,float(cnt)/float(total_rw[ks_type]),perc_format)
         row[ks_type]+=1
 
     total_row['write'] = row[ks_type]
-    if (last_row<row[ks_type]): last_row=row[ks_type]
-    if (last_row<16): last_row=16
-
-    reads_tps = total_reads[ks_type]/total_uptime
-    reads_tpd = reads_tps*60*60*24
-    reads_tpmo = reads_tps*60*60*24*365.25/12
-
-    writes_tps = total_writes[ks_type]/total_uptime
-    writes_tpd = writes_tps*60*60*24
-    writes_tpmo = writes_tps*60*60*24*365.25/12
-
-    total_tps = float(total_rw[ks_type])/total_uptime
-    total_tpd = total_tps*60*60*24
-    total_tpmo = total_tps*60*60*24*365.25/12
-    days_uptime = total_uptime/60/60/24
 
     row=1
     column=18
@@ -635,9 +626,15 @@ for cluster_url in data_url:
     worksheet[ks_type].write(row+3,column+2,'=T4*365.25/12',num_format1)
     worksheet[ks_type].write(row+4,column,'Reads % RW',header_format4)
     worksheet[ks_type].write(row+4,column+1,'=T3/(T3+T7)',perc_format)
+    header_format4.set_top(2)
+    total_format1.set_top(2)
+    num_format1.set_top(2)
     worksheet[ks_type].write(row+5,column,'Write Requests',header_format4)
     worksheet[ks_type].write(row+5,column+1,'=SUM(N4:N'+ str(total_row['write'])+')',total_format1)
     worksheet[ks_type].write(row+5,column+2,'=SUM(N4:N'+ str(total_row['write'])+')',num_format1)
+    header_format4.set_top(1)
+    total_format1.set_top(1)
+    num_format1.set_top(1)
     worksheet[ks_type].write(row+6,column,'Avg Write TPS',header_format4)
     worksheet[ks_type].write(row+6,column+1,'=SUM(O4:O'+ str(total_row['write'])+')',tps_format)
     worksheet[ks_type].write(row+6,column+2,'=SUM(O4:O'+ str(total_row['write'])+')',num_format4)
@@ -646,9 +643,15 @@ for cluster_url in data_url:
     worksheet[ks_type].write(row+7,column+2,'=T8*365.25/12',num_format1)
     worksheet[ks_type].write(row+8,column,'Writes % RW',header_format4)
     worksheet[ks_type].write(row+8,column+1,'=T7/(T3+T7)',perc_format)
+    header_format4.set_top(2)
+    total_format1.set_top(2)
+    num_format1.set_top(2)
     worksheet[ks_type].write(row+9,column,'Total RW',header_format4)
     worksheet[ks_type].write(row+9,column+1,'=T3+T7',total_format1)
     worksheet[ks_type].write(row+9,column+2,'=T3+T7',num_format1)
+    header_format4.set_top(1)
+    total_format1.set_top(1)
+    num_format1.set_top(1)
     worksheet[ks_type].write(row+10,column,'Total Avg TPS',header_format4)
     worksheet[ks_type].write(row+10,column+1,'=T4+T8',tps_format)
     worksheet[ks_type].write(row+10,column+2,'=T4+T8',num_format1)
