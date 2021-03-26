@@ -357,8 +357,6 @@ for cluster_url in data_url:
                 write_table[ks][tbl] = count
   
   for ks,tbl_array in table_array.items():
-#      print(ks+'.'+str(tbl))
-#  for ks,sizetable in size_table.items():
     if include_system==1:
       if ks not in system_keyspace and ks != '': ks_type='app'
       else: ks_type='sys'
@@ -370,25 +368,21 @@ for cluster_url in data_url:
       except:
         table_count[ks_type].append({'keyspace':ks,'table':tbl,'count':0})
   for ks,tbl_array in table_array.items():
-#  for ks,readtable in read_table.items():
     if include_system==1:
       if ks not in system_keyspace and ks != '': ks_type='app'
       else: ks_type='sys'
     else: ks_type='clu'
     for tbl in tbl_array:
- #   for tbl,tablecount in readtable.items():
       try:
         read_count[ks_type].append({'keyspace':ks,'table':tbl,'count':read_table[ks][tbl]})
       except:
         read_count[ks_type].append({'keyspace':ks,'table':tbl,'count':0})
   for ks,tbl_array in table_array.items():
-#  for ks,writetable in write_table.items():
     if include_system==1:
       if ks not in system_keyspace and ks != '': ks_type='app'
       else: ks_type='sys'
     else: ks_type='clu'
     for tbl in tbl_array:
-#    for tbl,tablecount in writetable.items():
       try:
         write_count[ks_type].append({'keyspace':ks,'table':tbl,'count':write_table[ks][tbl]})
       except:
@@ -701,8 +695,8 @@ for cluster_url in data_url:
 
 
     worksheet[ks_type].write_comment('C3',"A single set of data not to include the replication factor.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
-    worksheet[ks_type].write_comment('G3',"The "+ks_type_abbr[ks_type]+" table's total read requests based on a read consistancy level (CL) of LOCAL QUORUM and the local DC's replication factor (RF) of 3. If the read CL is set to LOCAL ONE, then the actual value will be up to 2X this number.  The time is determined by the node's uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
-    worksheet[ks_type].write_comment('H3',"The "+ks_type_abbr[ks_type]+" table's read request per second based on a read consistancy level (CL) of LOCAL QUORUM and the local DC's replication factor (RF) of 3. If the read CL is set to LOCAL ONE, then the actual value will be up to 2X this number.  The time is determined by the node's uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('G3',"The "+ks_type_abbr[ks_type]+" table's total read requests based on a read consistancy level (CL) of LOCAL_xxx.  The time is determined by the node's uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('H3',"The "+ks_type_abbr[ks_type]+" table's read request per second based on a read consistancy level (CL) of LOCAL_xxx.  The time is determined by the node's uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
     worksheet[ks_type].write_comment('I3',"The "+ks_type_abbr[ks_type]+" table's read pecentage of the total read requests in the cluster. (See comment in Total Read Req)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
     worksheet[ks_type].write_comment('J3',"The "+ks_type_abbr[ks_type]+" table's pecentage of read requests of the total RW requests (read and Write) in the cluster. (See comment in Total Read Req)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
     worksheet[ks_type].write_comment('N3',"The number of "+ks_type_abbr[ks_type]+" table's write requests on the coordinator nodes during the nodes uptime, analogous to client writes.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
@@ -710,8 +704,8 @@ for cluster_url in data_url:
     worksheet[ks_type].write_comment('P3',"The "+ks_type_abbr[ks_type]+" table's write pecentage of the total write requests in the cluster. (See comment in Total Read Req)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
     worksheet[ks_type].write_comment('Q3',"The "+ks_type_abbr[ks_type]+" table's pecentage of write requests of the total RW requests (read and Write) in the cluster. (See comment in Total Read Req)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
     worksheet[ks_type].write_comment('S3',"The "+ks_type_abbr[ks_type]+"'s total read requests based on a read consistancy level (CL) of LOCAL QUORUM and the local DC's replication factor (RF) of 3. If the read CL is set to LOCAL ONE, then the actual value will be up to 2X this number.  The time is determined by the node's uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
-    worksheet[ks_type].write_comment('S4',"The "+ks_type_abbr[ks_type]+"'s read request per second based on a read consistancy level (CL) of LOCAL QUORUM and the local DC's replication factor (RF) of 3. If the read CL is set to LOCAL ONE, then the actual value will be up to 2X this number.  The time is determined by the node's uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
-    worksheet[ks_type].write_comment('S5',"The "+ks_type_abbr[ks_type]+"'s read request per month based on a read consistancy level (CL) of LOCAL QUORUM and the local DC's replication factor (RF) of 3. If the read CL is set to LOCAL ONE, then the actual value will be up to 2X this number.  The time is determined by the node's uptime. Month is calcualted as 365.25/12 days.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S4',"The "+ks_type_abbr[ks_type]+"'s read request per second based on a read consistancy level (CL) of LOCAL_xxx.  The time is determined by the node's uptime.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
+    worksheet[ks_type].write_comment('S5',"The "+ks_type_abbr[ks_type]+"'s read request per month based on a read consistancy level (CL) of LOCAL_xxx.  The time is determined by the node's uptime. Month is calcualted as 365.25/12 days.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
     worksheet[ks_type].write_comment('S6',"The "+ks_type_abbr[ks_type]+"'s pecentage of read requests of the total RW requests (read and Write) in the cluster. (See comment in Read Requests)",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
     worksheet[ks_type].write_comment('S7',"The number of "+ks_type_abbr[ks_type]+"'s write requests on the coordinator nodes during the nodes uptime, analogous to client writes.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
     worksheet[ks_type].write_comment('S8',"The "+ks_type_abbr[ks_type]+"'s write request per second.",{'visible':0,'font_size': 12,'x_scale': 2,'y_scale': 2})
