@@ -153,6 +153,7 @@ for cluster_url in data_url:
   dc_array = []
   node_dc = {}
   table_array = {}
+  dc_ks_rf = {}
 
   rootPath = cluster_url + "/nodes/"
   for node in os.listdir(rootPath):
@@ -182,6 +183,14 @@ for cluster_url in data_url:
                 if (prt==prt_chk):
                   rf=line.split()[i+1].strip('}').strip(',').strip("'")
                   tbl_data[ks]['rf']+=float(rf)
+                  try:
+                    type(dc_ks_rf[dc_name])
+                  except:
+                    dc_ks_rf[dc_name] = {}
+                  try:
+                    type(dc_ks_rf[dc_name][ks])
+                  except:
+                    dc_ks_rf[dc_name][ks] = rf
                 i+=1
             elif("'replication_factor':" in line):
               i=0
@@ -189,6 +198,14 @@ for cluster_url in data_url:
                 prt_chk = "'replication_factor':"
                 if (prt==prt_chk):
                   rf=line.split()[i+1].strip('}').strip(',').strip("'")
+                  try:
+                    type(dc_ks_rf[dc_name])
+                  except:
+                    dc_ks_rf[dc_name] = {}
+                  try:
+                    type(dc_ks_rf[dc_name][ks])
+                  except:
+                    dc_ks_rf[dc_name][ks] = rf
                   tbl_data[ks]['rf']+=float(rf)
                 i+=1
             else:tbl_data[ks]['rf']=float(1)
@@ -237,7 +254,6 @@ for cluster_url in data_url:
               tbl_data[ks][tbl]['field'][fld_name]=fld_type
           except:
             print("Error1:" + ks + "." + tbl + " - " + line)
-
       iodata = {}
       iodata[node] = {}
       keyspace = ""
@@ -269,7 +285,6 @@ for cluster_url in data_url:
           if ks not in system_keyspace and ks != '': ks_type='app'
           else: ks_type='sys'
         else: ks_type='clu'
-        
         try:
           type(table_tps[ks])
         except:
@@ -282,43 +297,49 @@ for cluster_url in data_url:
           tbl = line.split(":")[1].strip()
           is_index = 1
           table_array[ks].append(tbl)
-        try:
-          type(table_tps[ks][tbl])
-        except:
-          table_tps[ks][tbl]={}
-        if (tbl and "Space used (live):" in line or "Memtable data size:" in line):
-          tsize = int(line.split(":")[1].strip())
-          if (tsize > 0):
-            total_size[ks_type] += tsize
+        if tbl<>'':
+          try:
+            type(table_tps[ks][tbl])
+          except:
+            table_tps[ks][tbl]={'write':0,'read':0}
+          if ("Space used (live):" in line):
             try:
-              type(size_table[ks])
+              tsize = int(line.split(":")[1].strip()) / float(dc_ks_rf[node_dc[node]][ks])
             except:
-              size_table[ks] = {}
+              tsize = int(line.split(":")[1].strip())
+            if (tsize > 0):
+              total_size[ks_type] += tsize
+              try:
+                type(size_table[ks])
+              except:
+                size_table[ks] = {}
+              try:
+                type(size_table[ks][tbl])
+                size_table[ks][tbl] += tsize
+              except:
+                size_table[ks][tbl] = tsize
+          if("Local read count: " in line):
             try:
-              type(size_table[ks][tbl])
-              size_table[ks][tbl] += tsize
+              count = int(line.split(':')[1].strip()) / float(dc_ks_rf[node_dc[node]][ks])
             except:
-              size_table[ks][tbl] = tsize
-        if(tbl and "Local read count: " in line):
-          count = int(line.split(":")[1].strip())
-          if (count > 0):
-            total_reads[ks_type] += count
-            try:
+              count = int(line.split(':')[1].strip())
+            if (count > 0):
+              total_reads[ks_type] += count
               table_tps[ks][tbl]['read'] += float(count) / float(node_uptime[node])
-            except:
-              table_tps[ks][tbl]['read'] = float(count) / float(node_uptime[node])
+              try:
+                type(read_table[ks])
+              except:
+                read_table[ks] = {}
+              try:
+                type(read_table[ks][tbl])
+                read_table[ks][tbl] += count
+              except:
+                read_table[ks][tbl] = count
+          elif("Local write count: " in line):
             try:
-              type(read_table[ks])
+              count = int(line.split(':')[1].strip()) / float(dc_ks_rf[node_dc[node]][ks])
             except:
-              read_table[ks] = {}
-            try:
-              type(read_table[ks][tbl])
-              read_table[ks][tbl] += count
-            except:
-              read_table[ks][tbl] = count
-        if (tbl and is_index == 0):
-          if("Local write count: " in line):
-            count = int(line.split(":")[1].strip())
+              count = int(line.split(':')[1].strip())
             if (count > 0):
               total_writes[ks_type] += count
               try:
@@ -334,6 +355,7 @@ for cluster_url in data_url:
                 write_table[ks][tbl] += count
               except:
                 write_table[ks][tbl] = count
+  
   for ks,tbl_array in table_array.items():
 #      print(ks+'.'+str(tbl))
 #  for ks,sizetable in size_table.items():
@@ -572,11 +594,9 @@ for cluster_url in data_url:
       ks = sizes['keyspace']
       tbl = sizes['table']
       t_size = sizes['count']
-      try: rf=tbl_data[ks]['rf']
-      except: rf = 1
       worksheet[ks_type].write(row[ks_type],column,ks,data_format)
       worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
-      worksheet[ks_type].write(row[ks_type],column+2,float(t_size)/rf,total_format1)
+      worksheet[ks_type].write(row[ks_type],column+2,float(t_size),total_format1)
       row[ks_type]+=1
 
     total_row['size'] = row[ks_type]
@@ -595,14 +615,7 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
         worksheet[ks_type].write(row[ks_type],column+2,cnt,total_format3)
         try:
-          if tbl_data[ks]['rf']>1:
-            div_by=2
-          else:
-            div_by=1
-        except:
-          div_by=1
-        try:
-          worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['read']/div_by,tps_format)
+          worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['read'],tps_format)
         except:
           worksheet[ks_type].write(row[ks_type],column+3,0,tps_format)
         worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_reads[ks_type],perc_format)
@@ -626,7 +639,7 @@ for cluster_url in data_url:
         worksheet[ks_type].write(row[ks_type],column+1,tbl,data_format)
         worksheet[ks_type].write(row[ks_type],column+2,cnt,total_format3)
         try:
-          worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['write']/rf,tps_format)
+          worksheet[ks_type].write(row[ks_type],column+3,table_tps[ks][tbl]['write'],tps_format)
         except:
           worksheet[ks_type].write(row[ks_type],column+3,0,tps_format)
         worksheet[ks_type].write(row[ks_type],column+4,float(cnt)/total_writes[ks_type],perc_format)
