@@ -3,6 +3,16 @@
 #pip install xlsxwriter
 #pip install pandas
 
+# tool imports
+import os.path
+from os import path
+import xlsxwriter
+import pandas as pd
+import sys
+import datetime
+import re
+import zipfile
+
 # Cassandra Workload Extractor Version
 version = "2.0.0"
 
@@ -18,7 +28,116 @@ tp_wl = 1         # Node write latency (ms)
 tp_sstbl = 20     # SStable count per node/table
 tp_gcp = 800      # Node P99 GC pause time
 tp_drm = 100000   # Number of dropped mutations per table
+tp_ts = 1000      # Number of tombstones in a single read request
 
+# initialize script variables
+data_url = []
+read_threshold = 1
+write_threshold = 1
+new_dc = ''
+show_help = ''
+include_system = 0
+log_df = '%Y-%m-%d %H:%M:%S'
+dt_fmt = '%m/%d/%Y %I:%M%p'
+tz = {}
+
+# communicate command line help
+for argnum,arg in enumerate(sys.argv):
+  if(arg=='-h' or arg =='--help'):
+    help_content = \
+      'usage: look.py [-h] [--help] [-inc_yaml]\n'\
+      '                       [-p PATH_TO_DIAG_FOLDER]\n'\
+      '                       [-tp_tblcnt CLUSTER_TABLE_COUNT_GUARDRAIL]\n'\
+      '                       [-tp_mv MATERIALIZED_VIEW_GUARDRAIL]\n'\
+      '                       [-tp_si SECONDARY INDEX_GUARDRAIL]\n'\
+      '                       [-tp_sai STORAGE_ATTACHED_INDEX_GUARDRAIL]\n'\
+      '                       [-tp_lpar LARGE_PARTITON_SIZE_GUARDRAIL]\n'\
+      '                       [-tp_rl READ_LATENCY_THRESHOLD]\n'\
+      '                       [-tp_wl WRITE_LATENCY_THRESHOLD]\n'\
+      '                       [-tp_sstbl SSTABLE_COUNT_THRESHOLD]\n'\
+      '                       [-tp_drm DROPPED_MUTATIONS_COUNT_THRESHOLD]\n'\
+      'required arguments:\n'\
+      '-p                     Path to the diagnostics folder\n'\
+      '                        Multiple diag folders accepted\n'\
+      '                        i.e. -p PATH1 -p PATH2 -p PATH3\n'\
+      'optional arguments:\n'\
+      '-v, --version          Version\n'\
+      '-h, --help             This help info\n'\
+      '-tp_tblcnt             Database Table Count\n'\
+      '                        Number of tables in the database\n'\
+      '                        to be listed in the Number of Tables tab\n'\
+      '                        Test Parameter: >'+str(tp_tblcnt)+'\n'\
+      '-tp_colcnt             Table Column Count\n'\
+      '                        Number of columns in a table\n'\
+      '                        Test Parameter: >'+str(tp_colcnt)+'\n'\
+      '-tp_mv                 Materialized Views\n'\
+      '                        Number of Materialized Views of a table\n'\
+      '                        Test Parameter: >'+str(tp_mv)+'\n'\
+      '-tp_si                Secondary Indexes\n'\
+      '                        Number of Secondary Indexes of a table\n'\
+      '                        Test Parameter: >'+str(tp_si)+'\n'\
+      '-tp_sai                Storage Attached Indexes  (Guardrail)\n'\
+      '                        Number of SAI of a table\n'\
+      '                        Test Parameter: >'+str(tp_sai)+'\n'\
+      '-tp_lpar               Large Partitions\n'\
+      '                        Size of partition in MB\n'\
+      '                        to be listed in the Large Partition tab\n'\
+      '                        Test Parameter: >'+str(tp_lpar)+'\n'\
+      '-tp_rl                 Local Read Latency (Database Health)\n'\
+      '                        Local read time(ms) in the cfstats log \n'\
+      '                        to be listed in the Read Latency tab\n'\
+      '                        Test Parameter: >'+str(tp_rl)+'\n'\
+      '-tp_wl                 Local Write Latency (Database Health)\n'\
+      '                        Local write time(ms) in the cfstats log \n'\
+      '                        to be listed in the Read Latency tab\n'\
+      '                        Test Parameter: >'+str(tp_wl)+'\n'\
+      '-tp_sstbl              SSTable Count (Database Health)\n'\
+      '                        SStable count in the cfstats log \n'\
+      '                        to be listed in the Table Qantity tab\n'\
+      '                        Test Parameter: >'+str(tp_sstbl)+'\n'\
+      '-tp_drm                Dropped Mutations (Database Health)\n'\
+      '                        Dropped Mutation count in the cfstats log \n'\
+      '                        to be listed in the Dropped Mutation tab\n'\
+      '                        Test Parameter: >'+str(tp_drm)+'\n\n'\
+      '-tp_gcp                GCPauses (Database Health)\n'\
+      '                        Node P99 GC pause time (ms)\n'\
+      '                        to be listed in the GC Pauses tab\n'\
+      '                        Test Parameter: >'+str(tp_gcp)+'\n'\
+      '-tp_ts                 Tombstones (Database Health)\n'\
+      '                        Number of tombstones in a\n'\
+      '                        single read request\n'\
+      '                        Test Parameter: >'+str(tp_ts)+'\n\n'
+
+    exit(help_content)
+  elif(arg=='-v' or arg =='--version'):
+    exit("Version " + version)
+
+# collect and analyze command line arguments
+for argnum,arg in enumerate(sys.argv):
+  if(arg=='-p'):
+    data_url.append(sys.argv[argnum+1])
+  elif(arg=='-tp_rl'):
+    tp_rl = float(sys.argv[argnum+1])
+  elif(arg=='-tp_wl'):
+    tp_wl = float(sys.argv[argnum+1])
+  elif(arg=='-tp_sstbl'):
+    tp_sstbl = float(sys.argv[argnum+1])
+  elif(arg=='-tp_drm'):
+    tp_drm = float(sys.argv[argnum+1])
+  elif(arg=='-tp_lpar'):
+    tp_lpar = float(sys.argv[argnum+1])
+  elif(arg=='-tp_gcp'):
+    tp_gcp = float(sys.argv[argnum+1])
+  elif(arg=='-tp_tblcnt'):
+    tp_tblcnt = float(sys.argv[argnum+1])
+  elif(arg=='-tp_colcnt'):
+    tp_colcnt = float(sys.argv[argnum+1])
+  elif(arg=='-tp_mv'):
+    tp_mv = float(sys.argv[argnum+1])
+  elif(arg=='-tp_si'):
+    tp_si = float(sys.argv[argnum+1])
+  elif(arg=='-tp_sai'):
+    tp_sai = float(sys.argv[argnum+1])
 
 info_box = 'Cassandra Workload Extractor\n'\
               'Version '+version+'\n'\
@@ -35,21 +154,13 @@ info_box = 'Cassandra Workload Extractor\n'\
               ' - Local table write latency more than '+str(tp_wl)+'ms\n'\
               ' - Node P99 GC pause time greater than '+str(tp_gcp)+'ms\n'\
               ' - More than '+str(tp_sstbl)+' SSTables per table\n'\
-              ' - More than '+str(tp_drm)+' dropped mutations per table\n\n'\
+              ' - More than '+str("{:,}".format(tp_drm))+' dropped mutations per table\n'\
+              ' - More than '+str("{:,}".format(tp_ts))+' tombstones in a single read request\n\n'\
               'Supported data in separate spreadsheet tabs'
  
 #
 info_box_options = {'width': 500,'height': 600,'x_offset': 10,'y_offset': 10,'font': {'color': '#3A3A42','size': 12}}
 
-# tool imports
-import os.path
-from os import path
-import xlsxwriter
-import pandas as pd
-import sys
-import datetime
-import re
-import zipfile
 
 # write comment on worksheet field
 def write_cmt(wksht,coord,title,vis=0):
@@ -146,6 +257,7 @@ def get_dc(rootPath,statuspath,node):
 
 # collect GC info from system.log
 def parseGC(node,systemlog,systemlogpath):
+  dc = node_dc[node]
   if(zipfile.is_zipfile(systemlog)):
     zf = zipfile.ZipFile(systemlog, 'r')
     systemlogFile = zf.read(zf.namelist()[0])
@@ -157,7 +269,6 @@ def parseGC(node,systemlog,systemlogpath):
       else: date_pos=3
       dt = line.split()[date_pos].strip()
       tm = line.split()[date_pos+1].split(',')[0].strip()
-      dc = node_dc[node]
       gcpause = line[line.find('GC in')+6:line.find('ms.')]
       ldatetime = dt + ' ' + re.sub(',.*$','',tm.strip())
       log_dt = datetime.datetime.strptime(ldatetime,log_df)
@@ -175,6 +286,18 @@ def parseGC(node,systemlog,systemlogpath):
       if(newest_gc[node]['jd']<log_jd): newest_gc[node]={'jd':log_jd,'dt':ldatetime + ' ' + tz[node]}
       if(oldest_gc[node]['jd']>log_jd): oldest_gc[node]={'jd':log_jd,'dt':ldatetime + ' ' + tz[node]}
       if(max(node_gcpause[node])==int(gcpause)): max_gc[node]= ldatetime
+    elif('tombstone cells' in line):
+      ts_tombstones=int(line.split('live rows and')[1].split()[0])
+      if ts_tombstones >= tp_ts:
+        ts_read=int(line.split('- Read')[1].split()[0])
+        ts_query=line.split('cells for query')[1].strip()
+        ts_ks=ts_query.split('.')[0].split()[len(ts_query.split('.')[0].split())-1]
+        ts_tbl=ts_query.split('.')[1].split()[0]
+        tombstone_data.append({'dc':dc,'node':node,'reads':ts_read,'count':ts_tombstones,'ks':ts_ks,'tbl':ts_tbl})
+        try:
+          type(warnings['Database Health']['Tombstones'])
+        except:
+          warnings['Database Health']['Tombstones']=['Tombstones greater than '+str("{:,}".format(tp_ts))+' in a single read request']
 
 # organize the GC pauses into percentage
 def get_gc_data(level,name,gcpause,is_node):
@@ -245,112 +368,6 @@ def get_param(filepath,param_name,param_pos,ignore='',default_val='Default'):
           return def_val
   else:
     exit('ERROR: No File: ' + filepath)
-
-# initialize script variables
-data_url = []
-read_threshold = 1
-write_threshold = 1
-new_dc = ''
-show_help = ''
-include_system = 0
-log_df = '%Y-%m-%d %H:%M:%S'
-dt_fmt = '%m/%d/%Y %I:%M%p'
-tz = {}
-
-# communicate command line help
-for argnum,arg in enumerate(sys.argv):
-  if(arg=='-h' or arg =='--help'):
-    help_content = \
-      'usage: look.py [-h] [--help] [-inc_yaml]\n'\
-      '                       [-p PATH_TO_DIAG_FOLDER]\n'\
-      '                       [-tp_tblcnt CLUSTER_TABLE_COUNT_GUARDRAIL]\n'\
-      '                       [-tp_mv MATERIALIZED_VIEW_GUARDRAIL]\n'\
-      '                       [-tp_si SECONDARY INDEX_GUARDRAIL]\n'\
-      '                       [-tp_sai STORAGE_ATTACHED_INDEX_GUARDRAIL]\n'\
-      '                       [-tp_lpar LARGE_PARTITON_SIZE_GUARDRAIL]\n'\
-      '                       [-tp_rl READ_LATENCY_THRESHOLD]\n'\
-      '                       [-tp_wl WRITE_LATENCY_THRESHOLD]\n'\
-      '                       [-tp_sstbl SSTABLE_COUNT_THRESHOLD]\n'\
-      '                       [-tp_drm DROPPED_MUTATIONS_COUNT_THRESHOLD]\n'\
-      'required arguments:\n'\
-      '-p                     Path to the diagnostics folder\n'\
-      '                        Multiple diag folders accepted\n'\
-      '                        i.e. -p PATH1 -p PATH2 -p PATH3\n'\
-      'optional arguments:\n'\
-      '-v, --version          Version\n'\
-      '-h, --help             This help info\n'\
-      '-tp_tblcnt             Database Table Count\n'\
-      '                        Number of tables in the database\n'\
-      '                        to be listed in the Number of Tables tab\n'\
-      '                        Test Parameter: >'+str(tp_tblcnt)+'\n'\
-      '-tp_colcnt             Table Column Count\n'\
-      '                        Number of columns in a table\n'\
-      '                        Test Parameter: >'+str(tp_colcnt)+'\n'\
-      '-tp_mv                 Materialized Views\n'\
-      '                        Number of Materialized Views of a table\n'\
-      '                        Test Parameter: >'+str(tp_mv)+'\n'\
-      '-tp_si                Secondary Indexes\n'\
-      '                        Number of Secondary Indexes of a table\n'\
-      '                        Test Parameter: >'+str(tp_si)+'\n'\
-      '-tp_sai                Storage Attached Indexes  (Guardrail)\n'\
-      '                        Number of SAI of a table\n'\
-      '                        Test Parameter: >'+str(tp_sai)+'\n'\
-      '-tp_lpar               Large Partitions\n'\
-      '                        Size of partition in MB\n'\
-      '                        to be listed in the Large Partition tab\n'\
-      '                        Test Parameter: >'+str(tp_lpar)+'\n'\
-      '-tp_rl                 Local Read Latency (Database Health)\n'\
-      '                        Local read time(ms) in the cfstats log \n'\
-      '                        to be listed in the Read Latency tab\n'\
-      '                        Test Parameter: >'+str(tp_rl)+'\n'\
-      '-tp_wl                 Local Write Latency (Database Health)\n'\
-      '                        Local write time(ms) in the cfstats log \n'\
-      '                        to be listed in the Read Latency tab\n'\
-      '                        Test Parameter: >'+str(tp_wl)+'\n'\
-      '-tp_sstbl              SSTable Count (Database Health)\n'\
-      '                        SStable count in the cfstats log \n'\
-      '                        to be listed in the Table Qantity tab\n'\
-      '                        Test Parameter: >'+str(tp_sstbl)+'\n'\
-      '-tp_drm                Dropped Mutations (Database Health)\n'\
-      '                        Dropped Mutation count in the cfstats log \n'\
-      '                        to be listed in the Dropped Mutation tab\n'\
-      '                        Test Parameter: >'+str(tp_drm)+'\n\n'\
-      '-tp_gcp                GCPauses (Database Health)\n'\
-      '                        Node P99 GC pause time (ms)\n'\
-      '                        to be listed in the GC Pauses tab\n'\
-      '                        Test Parameter: >'+str(tp_gcp)
-    exit(help_content)
-  elif(arg=='-v' or arg =='--version'):
-    exit("Version " + version)
-
-# collect and analyze command line arguments
-for argnum,arg in enumerate(sys.argv):
-  if(arg=='-p'):
-    data_url.append(sys.argv[argnum+1])
-  elif(arg=='-tp_rl'):
-    tp_rl = float(sys.argv[argnum+1])
-  elif(arg=='-tp_wl'):
-    tp_wl = float(sys.argv[argnum+1])
-  elif(arg=='-tp_sstbl'):
-    tp_sstbl = float(sys.argv[argnum+1])
-  elif(arg=='-tp_drm'):
-    tp_drm = float(sys.argv[argnum+1])
-  elif(arg=='-tp_lpar'):
-    tp_lpar = float(sys.argv[argnum+1])
-  elif(arg=='-tp_gcp'):
-    tp_gcp = float(sys.argv[argnum+1])
-  elif(arg=='-tp_tblcnt'):
-    tp_tblcnt = float(sys.argv[argnum+1])
-  elif(arg=='-tp_colcnt'):
-    tp_colcnt = float(sys.argv[argnum+1])
-  elif(arg=='-tp_mv'):
-    tp_mv = float(sys.argv[argnum+1])
-  elif(arg=='-tp_si'):
-    tp_si = float(sys.argv[argnum+1])
-  elif(arg=='-tp_sai'):
-    tp_sai = float(sys.argv[argnum+1])
-
-
 
 # Organize primary support tab information
 sheets_data = []
@@ -476,6 +493,7 @@ for database_url in data_url:
   ip_node = {}
   node_status_data = {}
   row={}
+  tombstone_data=[]
 
   warnings = {'Database Health':{},'Database Health':{}}
 
@@ -882,6 +900,9 @@ for database_url in data_url:
                 cor_node = node.replace('-','.')
                 parseGC(cor_node,systemlog,systemlogpath)
 
+  # sort data
+  tombstone_data.sort(reverse=True,key=sortFunc)
+
   #collect database GC Percents
   get_gc_data('Database',database_name,database_gcpause,0)
 
@@ -939,6 +960,8 @@ for database_url in data_url:
     if (sheet_array['sheet_name'] not in exclude_tab):
       stats_sheets[sheet_array['sheet_name']] = workbook.add_worksheet(sheet_array['tab_name'])
       stats_sheets[sheet_array['sheet_name']].freeze_panes(sheet_array['freeze_row'],sheet_array['freeze_col'])
+  ts_worksheet = workbook.add_worksheet('Tombstones')
+  ts_worksheet.freeze_panes(1,0)
   gc_worksheet = workbook.add_worksheet('GC Pauses')
   gc_worksheet.freeze_panes(2,2)
 
@@ -1345,6 +1368,36 @@ for database_url in data_url:
   stats_sheets['node'].write_formula('G'+str(ro+1),'=INT(F'+str(ro+1)+'/86400) & " days " & TEXT((F'+str(ro+1)+'/86400)-INT(F'+str(ro+1)+'/86400),"hh:mm:ss")',data_format3)
   total_row['node'] = ro+1
   
+  # create Tombstones Pause tab
+  ts_headers=['Sample DC','Sample Node','Keyspace','Table','Live Rows Read','Tombstones']
+  ts_cols=['dc','node','ks','tbl','reads','count']
+  ts_col_styles=[data_format,data_format,data_format,data_format,num_format1,num_format1]
+  ts_widths=[14,18,18,25,16,16]
+
+  prev_dc=0
+  row_num=0
+  column=0
+  dupl=[]
+  for header in ts_headers:
+    ts_worksheet.write(row_num,column,header,title_format)
+    write_cmt(worksheet,chr(ord('@')+column+1)+str(row_num+1),header)
+    column+=1
+
+  for col_num,col_width in enumerate(ts_widths):
+    ts_worksheet.set_column(col_num,col_num,col_width)
+
+  column=0
+  row_num+=1
+  for ts_data_array in tombstone_data:
+    dup_chk = ts_data_array['ks']+ts_data_array['tbl']
+    if dup_chk not in dupl:
+      dupl.append(dup_chk)
+      for col_name in ts_cols:
+        ts_worksheet.write(row_num,column,ts_data_array[col_name],ts_col_styles[column])
+        column+=1
+      row_num+=1
+      column=0
+
   # create GC Pause tab
   gc_headers=['Name','Level/DC','Pauses','Max','P99','P98','P95','P90','P75','P50','Min','From','To','Max Date']
   gc_fields=['Name','Level','Pauses','Max','P99','P98','P95','P90','P75','P50','Min','From','To','max_gc']
@@ -1535,16 +1588,16 @@ for database_url in data_url:
   column=0
   worksheet_metrics.merge_range('A1:B1', 'Cluster Summary for '+database_name, title_format3)
   worksheet_metrics.merge_range('A2:B2', 'Workload Summary', header_format5)
-  worksheet_metrics.write(row_num,column,'Read TPS',title_format4)
+  worksheet_metrics.write(row_num,column,'Avg. Read TPS',title_format4)
   write_cmt(worksheet_metrics,chr(ord('@')+column+1)+str(row_num+1),'Read TPS')
   worksheet_metrics.write_formula('B'+str(row_num+1),'=Workload!D'+str(total_row['read']+1),num_format_lg)
-  worksheet_metrics.write(row_num+1,column,'Read TPMo',title_format4)
+  worksheet_metrics.write(row_num+1,column,'Avg. Read TPMo',title_format4)
   write_cmt(worksheet_metrics,chr(ord('@')+column+1)+str(row_num+2),'Read TPMo')
   worksheet_metrics.write_formula('B'+str(row_num+2),'=Workload!D'+str(total_row['read']+1)+'*60*60*24*365.25/12',num_format_lg)
-  worksheet_metrics.write(row_num+2,column,'Write TPS',title_format4)
+  worksheet_metrics.write(row_num+2,column,'Avg. Write TPS',title_format4)
   write_cmt(worksheet_metrics,chr(ord('@')+column+1)+str(row_num+3),'Write TPS')
   worksheet_metrics.write_formula('B'+str(row_num+3),'=Workload!K'+str(total_row['write']+1),num_format_lg)
-  worksheet_metrics.write(row_num+3,column,'Write TPMo',title_format4)
+  worksheet_metrics.write(row_num+3,column,'Avg. Write TPMo',title_format4)
   write_cmt(worksheet_metrics,chr(ord('@')+column+1)+str(row_num+4),'Write TPMo')
   worksheet_metrics.write_formula('B'+str(row_num+4),'=Workload!K'+str(total_row['write']+1)+'*60*60*24*365.25/12',num_format_lg)
   worksheet_metrics.write(row_num+4,column,'Data Size (GB)',title_format4)
