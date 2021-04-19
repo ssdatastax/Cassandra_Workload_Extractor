@@ -12,9 +12,10 @@ import sys
 import datetime
 import re
 import zipfile
+import json
 
 # Cassandra Workload Extractor Version
-version = "2.0.0"
+version = "2.0.1"
 
 # Database Health test parameter defaults
 tp_mv = 2         # Number of materialized views per table
@@ -168,7 +169,7 @@ def write_cmt(wksht,coord,title,vis=0):
     if title in cmt_array['fields']:
       wksht.write_comment(coord,cmt_array['comment'][0],{'visible':vis,'font_size': 12,'x_scale': 2,'y_scale': 2})
 
-# check for guardrail
+# check for Cluster Health
 def add_tp_tbl(gr,ks,tbl,src_ks,src_tbl):
   if src_ks not in system_keyspace:
     try:
@@ -182,7 +183,19 @@ def add_tp_tbl(gr,ks,tbl,src_ks,src_tbl):
     if (ks+'.'+tbl) not in tp_tbl_data[gr][src_ks][src_tbl]:
       tp_tbl_data[gr][src_ks][src_tbl].append(ks+'.'+tbl)
 
+#Add element to warning
+def add_to_warning(lev_1,lev_2,warn_val):
+  try:
+    type(warnings[lev_1])
+  except:
+    warnings[lev_1]={}
+  try:
+    if warn_val not in warnings[lev_1][lev_2]:
+      warnings[lev_1][lev_2].append(warn_val)
+  except:
+    warnings[lev_1][lev_2]=[warn_val]
 
+# extract IP from str
 def extract_ip(ip_text):
   ip_add = []
   ips = re.findall(r'[0-9]+(?:\.[0-9]+){3}', ip_text)
@@ -193,23 +206,26 @@ def extract_ip(ip_text):
 # the node_ip is created in case the directory name (or node) is not the ip address
 # this is specifically used for adding the node uptime on the node tab
 def find_ip_addr(node,node_path):
-  systemlog = rootPath + node_path + '/logs/cassandra/system.log'
-  if path.isfile(systemlog):
-    systemlogFile = open(systemlog, 'r')
-    for line in systemlogFile:
+  gossippath = rootPath + node_path + '/nodetool/gossipinfo'
+  if path.isfile(gossippath):
+    gossipFile = open(gossippath, 'r')
+    for line in gossipFile:
       if node in line:
-        try:
-          ip_text =line.split(node)[1].split()[0].strip('/')
-          ip_adr = extract_ip(ip_text)
-          node_ip[node]=ip_adr
-          systemlogFile.close()
-          return 0
-        except:
-          cont=1
-    systemlogFile.close()
+        ip_addr = line.split('/')[1].strip('\n')
+        node_ip[node]=ip_addr
+        ip_node[ip_addr]=node
+        return 0
   else:
-    exit('The system log file for node ' + node_path + ' is not available (' + systemlog +')')
+    exit('The gossip file for node ' + node + ' is not available (' + gossippath +')')
   return 1
+
+# Get the OSS Cassandra Version
+def get_oss_ver(cvpath):
+  if path.isfile(cvpath):
+    gossipFile = open(cvpath, 'r')
+    for line in gossipFile:
+      return line.split(':')[1].strip().strip('\n')
+  else: return "OSS"
 
 # collect the dc name for each node
 def get_dc(rootPath,statuspath,node):
@@ -287,10 +303,18 @@ def parseGC(node,systemlog,systemlogpath):
       if(oldest_gc[node]['jd']>log_jd): oldest_gc[node]={'jd':log_jd,'dt':ldatetime + ' ' + tz[node]}
       if(max(node_gcpause[node])==int(gcpause)): max_gc[node]= ldatetime
     elif('tombstone cells' in line):
-      ts_tombstones=int(line.split('live rows and')[1].split()[0])
+      if 'lives rows and' in line:
+        ts_tombstones=int(line.split('live rows and')[1].split()[0])
+      elif 'live and' in line:
+        ts_tombstones=int(line.split('live and')[1].split()[0])
+      else:
+        ts_tombstones=0
       if ts_tombstones >= tp_ts:
         ts_read=int(line.split('- Read')[1].split()[0])
-        ts_query=line.split('cells for query')[1].strip()
+        if 'cells for query' in line:
+          ts_query=line.split('cells for query')[1].strip()
+        if 'tombstone cells in' in line:
+          ts_query=line.split('tombstone cells in')[1].strip()
         ts_ks=ts_query.split('.')[0].split()[len(ts_query.split('.')[0].split())-1]
         ts_tbl=ts_query.split('.')[1].split()[0]
         tombstone_data.append({'dc':dc,'node':node,'reads':ts_read,'count':ts_tombstones,'ks':ts_ks,'tbl':ts_tbl})
@@ -371,7 +395,7 @@ def get_param(filepath,param_name,param_pos,ignore='',default_val='Default'):
 
 # Organize primary support tab information
 sheets_data = []
-sheets_data.append({'sheet_name':'node','tab_name':'Node Data','freeze_row':1,'freeze_col':0,'cfstat_filter':'','headers':['Datacenter','Node','Load','Tokens','Rack','Uptime (sec)','Uptime'],'widths':[14,30,14,8,11,15,15],'extra':0,'comment':'','tp_type':''})
+sheets_data.append({'sheet_name':'node','tab_name':'Node Data','freeze_row':1,'freeze_col':0,'cfstat_filter':'','headers':['Datacenter','Node','Load','Tokens','Rack','Uptime (sec)','Uptime','Workload','Version'],'widths':[14,30,14,8,11,15,15,15,15],'extra':0,'comment':'','tp_type':''})
 sheets_data.append({'sheet_name':'ph','tab_name':'Proxihistogram','freeze_row':2,'freeze_col':0,'cfstat_filter':'','headers':['Datacenter','Node','Max','P99','P98','P95','P75','P50','Min','','Datacenter','Node','Max','P99','P98','P95','P75','P50','Min'],'widths':[20,20,10,10,10,10,10,10,10,3,20,20,10,10,10,10,10,10,10],'extra':0,'comment':'','tp_type':''})
 sheets_data.append({'sheet_name':'dmutation','tab_name':'Dropped Mutation','freeze_row':1,'freeze_col':0,'cfstat_filter':'Dropped Mutations','headers':['Node','DC','Keyspace','Table','Dropped Mutations'],'widths':[18,14,14,25,20],'filter_type':'>=','filter':tp_drm,'strip':'','extra':0,'comment':'Tables with more than '+str(tp_drm)+' dropped mutations (cfstats)','tp_type':'drm'})
 sheets_data.append({'sheet_name':'numTables','tab_name':'Number of Tables','freeze_row':1,'freeze_col':0,'cfstat_filter':'Total number of tables','headers':['Sample Node','DC','Keyspace','Table','Total Number of Tables'],'widths':[18,14,14,25,23],'filter_type':'>=','filter':tp_tblcnt,'strip':'','extra':1,'comment':'','tp_type':'tblcnt'})
@@ -566,6 +590,54 @@ for database_url in data_url:
           schemaFile = open(schemapath + '/schema', 'r')
         except:
           exit('Error: No schema file - ' + schemapath + '/schema')
+
+  # get workload info
+  initial_run=1
+  dse_nodes=0
+  nd_version=''
+  nd_workload=''
+  for node_path in os.listdir(rootPath):
+    if initial_run==1:
+      gossippath = rootPath + node_path + '/nodetool/gossipinfo'
+      cv_path = rootPath + node_path + '/nodetool/version'
+      if path.isfile(gossippath):
+        gossipFile = open(gossippath, 'r')
+        dc=''
+        for line in gossipFile:
+          if '/' in line:
+            if dc != '' and good_node==1:
+              node_status_data[dc][node_name]['Version']=nd_version
+              node_status_data[dc][node_name]['Workload']=nd_workload
+              if dse_nodes==0:
+                node_status_data[dc][node_name]['Workload']='OSS Cassandra'
+                node_status_data[dc][node_name]['Version']=get_oss_ver(cv_path)
+            ip_addr = line.split('/')[1].strip('\n')
+            if ip_addr in ip_node:
+              node_name = ip_node[ip_addr]
+              good_node=1
+            else:
+              add_to_warning('Missing Data','Missing Node Data',ip_addr)
+              good_node=0
+          elif 'DC:' in line and good_node==1:
+            dc=line.split(':')[2].strip('\n')
+          elif 'X_11_PADDING' in line and good_node==1:
+            start_line=line.split(':')[0]+':'+line.split(':')[1]+':'
+            line_array=json.loads(line.lstrip(start_line))
+            if line_array['workload']=='Cassandra': nd_workload='DSE Core'
+            else:
+              nd_workload=line_array['workload']
+            if line_array['graph']=='true':
+              nd_workload += ' + '+'Graph'
+            nd_version=str(line_array['dse_version'])
+            dse_nodes=1
+        if (good_node==1):
+          node_status_data[dc][node_name]['Version']=nd_version
+          node_status_data[dc][node_name]['Workload']=nd_workload
+          if dse_nodes==0:
+            node_status_data[dc][node_name]['Workload']='OSS Cassandra'
+            node_status_data[dc][node_name]['Version']=get_oss_ver(cv_path)
+        
+        initial_run=0
 
   # collect and analyze schema
   ks = ''
@@ -1358,7 +1430,7 @@ for database_url in data_url:
   for dc,node_status_array in list(node_status_data.items()):
     for node,status_array in list(node_status_array.items()):
       if node in node_ip:
-        row_data = [dc,node,status_array['Load'],status_array['Tokens'],status_array['Rack']]
+        row_data = [dc,node,status_array['Load'],status_array['Tokens'],status_array['Rack'],'','',status_array['Workload'],status_array['Version']]
         write_row('node',row_data,data_format)
         ro = row['node']
         stats_sheets['node'].write(ro-1,5,node_uptime[node],total_format2)
