@@ -15,7 +15,7 @@ import zipfile
 import json
 
 # Cassandra Workload Extractor Version
-version = "2.0.1"
+version = "2.0.2"
 
 # Database Health test parameter defaults
 tp_mv = 2         # Number of materialized views per table
@@ -276,10 +276,12 @@ def parseGC(node,systemlog,systemlogpath):
   dc = node_dc[node]
   if(zipfile.is_zipfile(systemlog)):
     zf = zipfile.ZipFile(systemlog, 'r')
-    systemlogFile = zf.read(zf.namelist()[0])
+    systemlogFile = zf.open(zf.namelist()[0])
   else:
     systemlogFile = open(systemlog, 'r')
   for line in systemlogFile:
+    if type(line) is bytes:
+      line = line.decode("utf-8")
     if('GCInspector.java:' in line):
       if(line.split()[2].strip().count('-')==2): date_pos=2
       else: date_pos=3
@@ -620,7 +622,7 @@ for database_url in data_url:
               good_node=0
           elif 'DC:' in line and good_node==1:
             dc=line.split(':')[2].strip('\n')
-          elif 'X_11_PADDING' in line and good_node==1:
+          elif ('X_11_PADDING' in line or 'DSE_GOSSIP_STATE' in line)and good_node==1:
             start_line=line.split(':')[0]+':'+line.split(':')[1]+':'
             line_array=json.loads(line.lstrip(start_line))
             if line_array['workload']=='Cassandra': nd_workload='DSE Core'
