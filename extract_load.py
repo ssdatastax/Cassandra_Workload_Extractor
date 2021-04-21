@@ -15,7 +15,7 @@ import zipfile
 import json
 
 # Cassandra Workload Extractor Version
-version = "2.0.2"
+version = "2.0.3"
 
 # Database Health test parameter defaults
 tp_mv = 2         # Number of materialized views per table
@@ -41,6 +41,7 @@ include_system = 0
 log_df = '%Y-%m-%d %H:%M:%S'
 dt_fmt = '%m/%d/%Y %I:%M%p'
 tz = {}
+dni_sys = 0
 
 # communicate command line help
 for argnum,arg in enumerate(sys.argv):
@@ -64,6 +65,7 @@ for argnum,arg in enumerate(sys.argv):
       'optional arguments:\n'\
       '-v, --version          Version\n'\
       '-h, --help             This help info\n'\
+      '-dni_sys               Do not include system files\n'\
       '-tp_tblcnt             Database Table Count\n'\
       '                        Number of tables in the database\n'\
       '                        to be listed in the Number of Tables tab\n'\
@@ -139,6 +141,8 @@ for argnum,arg in enumerate(sys.argv):
     tp_si = float(sys.argv[argnum+1])
   elif(arg=='-tp_sai'):
     tp_sai = float(sys.argv[argnum+1])
+  elif(arg=='-dni_sys'):
+    dni_sys = 1
 
 info_box = 'Cassandra Workload Extractor\n'\
               'Version '+version+'\n'\
@@ -425,7 +429,12 @@ dni_keyspace = ['OpsCenter']
 
 #system keyspaces
 system_keyspace = ['OpsCenter','dse_insights_local','solr_admin','test','dse_system','dse_analytics','system_auth','system_traces','system','dse_system_local','system_distributed','system_schema','dse_perf','dse_insights','dse_security','dse_system','killrvideo','dse_leases','dsefs_c4z','HiveMetaStore','dse_analytics','dsefs','spark_system']
-ks_type_abbr = {'app':'Application','sys':'System'}
+
+#do not include keyspaces
+if dni_sys == 1:
+  dni_keyspace = system_keyspace
+else:
+  dni_keyspace = ['OpsCenter']
 
 comments = [
 {
